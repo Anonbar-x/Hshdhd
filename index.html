@@ -3,20 +3,18 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>BarcodeStudio Pro</title>
+  <title>Barcode Generator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css"/>
-  <!-- Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <!-- jsPDF for PDF generation -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
 
-<!-- ══ TOPBAR ══════════════════════════════════════════ -->
+<!-- TOPBAR -->
 <header class="topbar">
   <div class="brand">
     <div class="brand-icon" aria-hidden="true">
@@ -24,361 +22,280 @@
       <span class="bar b3"></span><span class="bar b4"></span>
       <span class="bar b5"></span>
     </div>
-    <span class="brand-name">BarcodeStudio</span>
-    <span class="brand-tag">PRO</span>
+    <span class="brand-name">Barcode Generator</span>
   </div>
   <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-    <svg class="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-    <svg class="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
   </button>
 </header>
 
-<!-- ══ MAIN LAYOUT ══════════════════════════════════════ -->
-<div class="layout">
+<!-- MAIN -->
+<div class="container">
 
-  <!-- ── LEFT COLUMN ── -->
-  <div class="left-col">
+  <!-- LEFT: Input Card -->
+  <div class="card input-card">
 
-    <!-- STEP 1: Printer / Paper Size -->
-    <div class="panel step-panel">
-      <div class="step-header">
-        <span class="step-num">1</span>
-        <div>
-          <div class="step-title">Select Printer &amp; Paper Size</div>
-          <div class="step-sub">Choose before generating — works with any printer worldwide</div>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="barcode">Barcode</button>
+      <button class="tab" data-tab="qr">QR Code</button>
+      <button class="tab" data-tab="batch">Batch</button>
+    </div>
+
+    <!-- TAB: BARCODE -->
+    <div class="tab-pane active" id="tab-barcode">
+
+      <div class="field-row">
+        <div class="field grow">
+          <label for="barcodeInput">Barcode Number / Code</label>
+          <input type="text" id="barcodeInput" placeholder="e.g. 012345678905" autocomplete="off" spellcheck="false"/>
         </div>
-      </div>
-
-      <!-- Printer presets -->
-      <div class="printer-preset-grid" id="printerPresets">
-        <button class="pp-btn active" data-id="thermal_58">
-          <div class="pp-icon">🖨</div>
-          <div class="pp-name">Thermal 58mm</div>
-          <div class="pp-dim">58 × 40 mm</div>
-        </button>
-        <button class="pp-btn" data-id="thermal_80">
-          <div class="pp-icon">🖨</div>
-          <div class="pp-name">Thermal 80mm</div>
-          <div class="pp-dim">80 × 50 mm</div>
-        </button>
-        <button class="pp-btn" data-id="label_50x25">
-          <div class="pp-icon">🏷</div>
-          <div class="pp-name">Label 50×25</div>
-          <div class="pp-dim">50 × 25 mm</div>
-        </button>
-        <button class="pp-btn" data-id="label_100x50">
-          <div class="pp-icon">🏷</div>
-          <div class="pp-name">Label 100×50</div>
-          <div class="pp-dim">100 × 50 mm</div>
-        </button>
-        <button class="pp-btn" data-id="a4">
-          <div class="pp-icon">📄</div>
-          <div class="pp-name">A4 Paper</div>
-          <div class="pp-dim">210 × 297 mm</div>
-        </button>
-        <button class="pp-btn" data-id="a5">
-          <div class="pp-icon">📄</div>
-          <div class="pp-name">A5 Paper</div>
-          <div class="pp-dim">148 × 210 mm</div>
-        </button>
-        <button class="pp-btn" data-id="letter">
-          <div class="pp-icon">📄</div>
-          <div class="pp-name">US Letter</div>
-          <div class="pp-dim">216 × 279 mm</div>
-        </button>
-        <button class="pp-btn" data-id="custom">
-          <div class="pp-icon">✏️</div>
-          <div class="pp-name">Custom Size</div>
-          <div class="pp-dim">Set manually</div>
-        </button>
-      </div>
-
-      <!-- Custom size inputs (hidden until "Custom" selected) -->
-      <div class="custom-size-box" id="customSizeBox" style="display:none">
-        <div class="field-row">
-          <div class="field">
-            <label>Width</label>
-            <div class="input-unit-wrap">
-              <input type="number" id="customW" value="50" min="10" max="1000"/>
-              <span class="unit-badge" id="unitBadge">mm</span>
-            </div>
-          </div>
-          <div class="field">
-            <label>Height</label>
-            <div class="input-unit-wrap">
-              <input type="number" id="customH" value="30" min="10" max="1000"/>
-              <span class="unit-badge">mm</span>
-            </div>
-          </div>
-          <div class="field field-sm">
-            <label>Unit</label>
-            <select id="customUnit">
-              <option value="mm" selected>mm</option>
-              <option value="in">inch</option>
-              <option value="cm">cm</option>
-              <option value="px">px</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Layout options -->
-      <div class="layout-opts">
-        <div class="layout-opt-group">
-          <label class="opt-label">Orientation</label>
-          <div class="seg-ctrl">
-            <button class="seg active" data-orient="portrait">Portrait</button>
-            <button class="seg" data-orient="landscape">Landscape</button>
-          </div>
-        </div>
-        <div class="layout-opt-group">
-          <label class="opt-label">Stickers per page</label>
-          <select id="stickersPerPage" class="compact-select">
-            <option value="1" selected>1 — Single</option>
-            <option value="2">2 per page</option>
-            <option value="4">4 per page</option>
-            <option value="6">6 per page</option>
-            <option value="10">10 per page</option>
-            <option value="12">12 per page</option>
-            <option value="20">20 per page</option>
-            <option value="24">24 per page</option>
+        <div class="field w120">
+          <label for="formatSelect">Format</label>
+          <select id="formatSelect">
+            <option value="auto">Auto</option>
+            <option value="CODE128">CODE128</option>
+            <option value="EAN13">EAN-13</option>
+            <option value="EAN8">EAN-8</option>
+            <option value="UPC">UPC-A</option>
+            <option value="CODE39">CODE39</option>
+            <option value="ITF14">ITF-14</option>
+            <option value="MSI">MSI</option>
           </select>
         </div>
-        <div class="layout-opt-group">
-          <label class="opt-label">Margin</label>
-          <div class="input-unit-wrap" style="width:90px">
-            <input type="number" id="marginSize" value="3" min="0" max="20" style="width:100%"/>
-            <span class="unit-badge">mm</span>
-          </div>
-        </div>
       </div>
 
-      <!-- Selected size indicator -->
-      <div class="size-indicator" id="sizeIndicator">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-        <span id="sizeIndicatorText">Thermal 58mm &nbsp;·&nbsp; 58 × 40 mm &nbsp;·&nbsp; Portrait &nbsp;·&nbsp; 1 sticker/page</span>
+      <!-- Optional label fields -->
+      <details class="opt-section">
+        <summary>Custom Label <span class="badge">optional</span></summary>
+        <div class="opt-body">
+          <div class="field-grid">
+            <div class="field">
+              <label for="labelName">Product Name</label>
+              <input type="text" id="labelName" placeholder="e.g. Premium Rice 5kg"/>
+            </div>
+            <div class="field">
+              <label for="labelPrice">Price</label>
+              <input type="text" id="labelPrice" placeholder="e.g. ৳ 250"/>
+            </div>
+            <div class="field">
+              <label for="labelDate">Date</label>
+              <input type="date" id="labelDate"/>
+            </div>
+            <div class="field">
+              <label for="labelNote">Note</label>
+              <input type="text" id="labelNote" placeholder="e.g. Batch #A1"/>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <label>Logo / Image</label>
+            <label class="file-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload PNG / JPG
+              <input type="file" id="logoUpload" accept="image/*" style="display:none"/>
+            </label>
+            <div class="logo-row" id="logoRow" style="display:none">
+              <img id="logoImg" alt="logo"/>
+              <button class="link-btn" id="removeLogo">Remove</button>
+            </div>
+          </div>
+
+        </div>
+      </details>
+
+      <!-- Bar size sliders -->
+      <details class="opt-section">
+        <summary>Bar Size</summary>
+        <div class="opt-body">
+          <div class="slider-row">
+            <div class="slider-item">
+              <div class="slider-label">Width <span class="val" id="widthVal">2</span></div>
+              <input type="range" id="barWidth" min="1" max="4" step="0.5" value="2"/>
+            </div>
+            <div class="slider-item">
+              <div class="slider-label">Height <span class="val" id="heightVal">80</span>px</div>
+              <input type="range" id="barHeight" min="40" max="160" step="10" value="80"/>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <button class="btn-gen" id="generateBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Generate Barcode
+      </button>
+    </div>
+
+    <!-- TAB: QR -->
+    <div class="tab-pane" id="tab-qr">
+      <div class="field">
+        <label for="qrInput">Text / URL / Data</label>
+        <textarea id="qrInput" rows="4" placeholder="https://example.com&#10;or any text, phone number, email..."></textarea>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field grow">
+          <label for="qrSize">Size</label>
+          <select id="qrSize">
+            <option value="128">Small (128px)</option>
+            <option value="200" selected>Medium (200px)</option>
+            <option value="256">Large (256px)</option>
+            <option value="320">XL (320px)</option>
+          </select>
+        </div>
+        <div class="field grow">
+          <label for="qrError">Error Correction</label>
+          <select id="qrError">
+            <option value="L">L — 7%</option>
+            <option value="M" selected>M — 15%</option>
+            <option value="Q">Q — 25%</option>
+            <option value="H">H — 30%</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-gen" id="generateQrBtn" style="margin-top:16px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="17" y="17" width="4" height="4"/></svg>
+        Generate QR Code
+      </button>
+    </div>
+
+    <!-- TAB: BATCH -->
+    <div class="tab-pane" id="tab-batch">
+      <div class="field">
+        <label for="batchInput">Barcode List <span class="muted-label">— one per line</span></label>
+        <textarea id="batchInput" rows="8" placeholder="012345678901&#10;012345678902&#10;ABC-001&#10;ABC-002&#10;..."></textarea>
+      </div>
+      <div class="field-row" style="margin-top:12px">
+        <div class="field grow">
+          <label for="batchFormat">Format</label>
+          <select id="batchFormat">
+            <option value="auto">Auto</option>
+            <option value="CODE128">CODE128</option>
+            <option value="EAN13">EAN-13</option>
+            <option value="UPC">UPC-A</option>
+          </select>
+        </div>
+        <div class="field w110">
+          <label for="batchCols">Columns</label>
+          <select id="batchCols">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-gen" id="generateBatchBtn" style="margin-top:16px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        Generate All
+      </button>
+    </div>
+
+  </div><!-- /input-card -->
+
+  <!-- RIGHT: Preview Card -->
+  <div class="card preview-card">
+
+    <!-- Preview header -->
+    <div class="preview-header">
+      <span class="card-label">Preview</span>
+      <div class="action-btns" id="actionBtns" style="display:none">
+        <button class="btn-sm" id="btnPng" title="Download PNG">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          PNG
+        </button>
+        <button class="btn-sm" id="btnSvg" title="Download SVG">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          SVG
+        </button>
+        <button class="btn-pdf" id="btnPdf">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Download PDF
+        </button>
       </div>
     </div>
 
-    <!-- STEP 2: Barcode Generator -->
-    <div class="panel step-panel">
-      <div class="step-header">
-        <span class="step-num">2</span>
-        <div>
-          <div class="step-title">Create Your Barcode</div>
-          <div class="step-sub">Barcode, QR Code, or generate multiple at once</div>
-        </div>
+    <!-- Preview area -->
+    <div class="preview-area" id="previewArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-bars"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <p>Your barcode will appear here</p>
       </div>
-
-      <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="barcode">Barcode</button>
-        <button class="tab" data-tab="qr">QR Code</button>
-        <button class="tab" data-tab="batch">Batch</button>
+      <!-- Single sticker -->
+      <div class="sticker" id="sticker" style="display:none">
+        <p class="sticker-name" id="stickerName"></p>
+        <img class="sticker-logo" id="stickerLogo" style="display:none" alt="logo"/>
+        <div id="bcHolder"><svg id="bcSvg"></svg></div>
+        <div id="qrHolder" style="display:none"></div>
+        <p class="sticker-code" id="stickerCode"></p>
+        <div class="sticker-meta" id="stickerMeta"></div>
       </div>
+      <!-- Batch grid -->
+      <div class="batch-grid" id="batchGrid" style="display:none"></div>
+    </div>
 
-      <!-- TAB: BARCODE -->
-      <section class="tab-content active" id="tab-barcode">
-        <div class="field-row">
-          <div class="field">
-            <label for="barcodeInput">Code / Number</label>
-            <input type="text" id="barcodeInput" placeholder="e.g. 012345678905" autocomplete="off" spellcheck="false"/>
-          </div>
-          <div class="field field-sm">
-            <label for="formatSelect">Format</label>
-            <select id="formatSelect">
-              <option value="auto">Auto</option>
-              <option value="CODE128">CODE128</option>
-              <option value="EAN13">EAN-13</option>
-              <option value="EAN8">EAN-8</option>
-              <option value="UPC">UPC-A</option>
-              <option value="CODE39">CODE39</option>
-              <option value="ITF14">ITF-14</option>
-              <option value="MSI">MSI</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="section-title">Custom Label <span class="badge">optional</span></div>
-        <div class="field-grid">
-          <div class="field">
-            <label for="labelName">Product Name</label>
-            <input type="text" id="labelName" placeholder="e.g. Premium Rice 5kg"/>
-          </div>
-          <div class="field">
-            <label for="labelPrice">Price</label>
-            <input type="text" id="labelPrice" placeholder="e.g. ৳ 250"/>
-          </div>
-          <div class="field">
-            <label for="labelDate">Date</label>
-            <input type="date" id="labelDate"/>
-          </div>
-          <div class="field">
-            <label for="labelNote">Extra Note</label>
-            <input type="text" id="labelNote" placeholder="e.g. Batch #A1"/>
-          </div>
-        </div>
-
-        <div class="section-title">Logo / Image <span class="badge">optional</span></div>
-        <label class="file-upload-btn">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Upload Logo (PNG / JPG)
-          <input type="file" id="logoUpload" accept="image/*" style="display:none"/>
-        </label>
-        <div class="logo-preview-row" id="logoRow" style="display:none">
-          <img id="logoImg" alt="logo"/>
-          <button class="ghost-btn" id="removeLogo">Remove</button>
-        </div>
-
-        <div class="section-title">Barcode Size</div>
-        <div class="size-controls">
-          <div class="size-item">
-            <label>Bar Width &nbsp;<span class="val-badge" id="widthVal">2</span></label>
-            <input type="range" id="barWidth" min="1" max="4" step="0.5" value="2"/>
-          </div>
-          <div class="size-item">
-            <label>Height &nbsp;<span class="val-badge" id="heightVal">80</span>px</label>
-            <input type="range" id="barHeight" min="40" max="160" step="10" value="80"/>
-          </div>
-        </div>
-
-        <button class="btn-generate" id="generateBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          Generate Barcode
-        </button>
-      </section>
-
-      <!-- TAB: QR -->
-      <section class="tab-content" id="tab-qr">
-        <div class="field">
-          <label for="qrInput">Text / URL / Data</label>
-          <textarea id="qrInput" rows="4" placeholder="https://example.com&#10;or any text, phone, email..."></textarea>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label for="qrSize">QR Size</label>
-            <select id="qrSize">
-              <option value="128">Small (128px)</option>
-              <option value="200" selected>Medium (200px)</option>
-              <option value="256">Large (256px)</option>
-              <option value="320">XL (320px)</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="qrError">Error Correction</label>
-            <select id="qrError">
-              <option value="L">L — 7%</option>
-              <option value="M" selected>M — 15%</option>
-              <option value="Q">Q — 25%</option>
-              <option value="H">H — 30%</option>
-            </select>
-          </div>
-        </div>
-        <button class="btn-generate" id="generateQrBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="17" y="17" width="4" height="4"/></svg>
-          Generate QR Code
-        </button>
-      </section>
-
-      <!-- TAB: BATCH -->
-      <section class="tab-content" id="tab-batch">
-        <div class="field">
-          <label for="batchInput">Barcode List <span class="hint-inline">— one per line</span></label>
-          <textarea id="batchInput" rows="7" placeholder="012345678901&#10;012345678902&#10;ABC-001&#10;ABC-002"></textarea>
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label for="batchFormat">Format</label>
-            <select id="batchFormat">
-              <option value="auto">Auto</option>
-              <option value="CODE128">CODE128</option>
-              <option value="EAN13">EAN-13</option>
-              <option value="UPC">UPC-A</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="batchCols">Preview cols</label>
-            <select id="batchCols">
-              <option value="1">1 col</option>
-              <option value="2" selected>2 cols</option>
-              <option value="3">3 cols</option>
-            </select>
-          </div>
-        </div>
-        <button class="btn-generate" id="generateBatchBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          Generate All
-        </button>
-      </section>
-
-    </div><!-- /step 2 panel -->
-  </div><!-- /left-col -->
-
-  <!-- ── RIGHT COLUMN ── -->
-  <div class="right-col">
-
-    <!-- Preview panel -->
-    <div class="panel preview-panel">
-      <div class="preview-panel-header">
-        <span class="section-label">Live Preview</span>
-        <div class="preview-btns" id="previewBtns" style="display:none">
-          <button class="icon-btn" id="downloadPng" title="Download PNG">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            PNG
-          </button>
-          <button class="icon-btn" id="downloadSvgBtn" title="Download SVG">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            SVG
-          </button>
-          <button class="btn-pdf" id="downloadPdfBtn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h6M9 18h4"/></svg>
-            Download PDF
-          </button>
-        </div>
+    <!-- PDF size strip — shown after generate -->
+    <div class="size-strip" id="sizeStrip" style="display:none">
+      <div class="size-strip-left">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="size-strip-title">PDF Paper Size</span>
       </div>
-
-      <!-- Paper size visual preview -->
-      <div class="paper-stage" id="paperStage">
-        <div class="paper-empty" id="paperEmpty">
-          <div class="empty-bars"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-          <p>Generate a barcode to see preview</p>
+      <div class="size-inputs">
+        <div class="size-field">
+          <label>Width</label>
+          <div class="unit-input">
+            <input type="number" id="pdfW" value="80" min="10" max="1000"/>
+            <span class="unit" id="unitLabel">mm</span>
+          </div>
         </div>
-        <!-- Paper sheet mock -->
-        <div class="paper-sheet" id="paperSheet" style="display:none">
-          <!-- filled by JS -->
+        <span class="size-x">×</span>
+        <div class="size-field">
+          <label>Height</label>
+          <div class="unit-input">
+            <input type="number" id="pdfH" value="50" min="10" max="1000"/>
+            <span class="unit">mm</span>
+          </div>
         </div>
-      </div>
-
-      <!-- PDF info strip -->
-      <div class="pdf-info-strip" id="pdfInfoStrip" style="display:none">
-        <div class="pdf-info-left">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <span id="pdfInfoText">Ready to export</span>
+        <div class="size-field">
+          <label>Unit</label>
+          <select id="pdfUnit" class="unit-select">
+            <option value="mm" selected>mm</option>
+            <option value="in">inch</option>
+            <option value="cm">cm</option>
+          </select>
         </div>
-        <span class="pdf-info-note">PDF is optimised for your selected printer size</span>
+        <div class="size-field">
+          <label>Per page</label>
+          <select id="pdfPerPage" class="unit-select">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="4">4</option>
+            <option value="6">6</option>
+            <option value="10">10</option>
+            <option value="12">12</option>
+          </select>
+        </div>
       </div>
     </div>
 
-    <!-- History panel -->
-    <div class="panel history-panel">
+    <!-- History -->
+    <div class="hist-wrap">
       <div class="hist-header">
-        <span class="section-label">History</span>
-        <button class="ghost-btn" id="clearHistory">Clear all</button>
+        <span class="card-label">History</span>
+        <button class="link-btn" id="clearHistory">Clear</button>
       </div>
-      <div class="history-list" id="historyList">
-        <p class="history-empty">Generated codes will appear here</p>
+      <div class="hist-list" id="histList">
+        <p class="hist-empty">Nothing yet</p>
       </div>
     </div>
 
-  </div><!-- /right-col -->
-</div><!-- /layout -->
+  </div><!-- /preview-card -->
+</div><!-- /container -->
 
-<!-- ══ PDF PROGRESS TOAST ══════════════════════════════ -->
-<div class="toast" id="pdfToast" style="display:none">
-  <div class="toast-icon">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-  </div>
+<!-- Toast -->
+<div class="toast" id="toast" style="display:none">
   <span id="toastMsg">Generating PDF…</span>
-  <div class="toast-spinner"></div>
+  <span class="toast-spin" id="toastSpin"></span>
 </div>
 
 </body>
