@@ -1,102 +1,78 @@
 /* ══════════════════════════════════════════════
-   Barcode Generator — script.js
+   Barcode Generator — script.js  v3 FINAL
+   Fixes: PDF centering, history persistence,
+          barcode fills cell correctly
    ══════════════════════════════════════════════ */
 (function () {
   'use strict';
 
-  /* ── State ───────────────────────────────────── */
   const S = {
-    type:    'barcode',
-    ready:   false,
-    logoUrl: null,
-    history: [],
-    bcSvgEl: null,   // generated barcode SVG element
-    qrCanvas:null,   // generated QR canvas
-    batchItems:[],   // [{code, svgEl, ok}]
+    type: 'barcode', ready: false, logoUrl: null,
+    history: [], bcSvgEl: null, qrCanvas: null, batchItems: [],
   };
 
-  /* ── DOM ─────────────────────────────────────── */
-  const $  = id => document.getElementById(id);
+  const $ = id => document.getElementById(id);
 
-  const themeToggle   = $('themeToggle');
-  const tabs          = document.querySelectorAll('.tab');
-  const tabPanes      = document.querySelectorAll('.tab-pane');
-
-  // Barcode inputs
-  const barcodeInput  = $('barcodeInput');
-  const formatSelect  = $('formatSelect');
-  const labelName     = $('labelName');
-  const labelPrice    = $('labelPrice');
-  const labelDate     = $('labelDate');
-  const labelNote     = $('labelNote');
-  const logoUpload    = $('logoUpload');
-  const logoRow       = $('logoRow');
-  const logoImg       = $('logoImg');
-  const removeLogo    = $('removeLogo');
-  const barWidth      = $('barWidth');
-  const barHeight     = $('barHeight');
-  const widthVal      = $('widthVal');
-  const heightVal     = $('heightVal');
-  const generateBtn   = $('generateBtn');
-
-  // QR inputs
-  const qrInput       = $('qrInput');
-  const qrSize        = $('qrSize');
-  const qrError       = $('qrError');
-  const generateQrBtn = $('generateQrBtn');
-
-  // Batch inputs
-  const batchInput    = $('batchInput');
-  const batchFormat   = $('batchFormat');
-  const batchCols     = $('batchCols');
+  const themeToggle      = $('themeToggle');
+  const tabs             = document.querySelectorAll('.tab');
+  const tabPanes         = document.querySelectorAll('.tab-pane');
+  const barcodeInput     = $('barcodeInput');
+  const formatSelect     = $('formatSelect');
+  const labelName        = $('labelName');
+  const labelPrice       = $('labelPrice');
+  const labelDate        = $('labelDate');
+  const labelNote        = $('labelNote');
+  const logoUpload       = $('logoUpload');
+  const logoRow          = $('logoRow');
+  const logoImg          = $('logoImg');
+  const removeLogo       = $('removeLogo');
+  const barWidth         = $('barWidth');
+  const barHeight        = $('barHeight');
+  const widthVal         = $('widthVal');
+  const heightVal        = $('heightVal');
+  const generateBtn      = $('generateBtn');
+  const qrInput          = $('qrInput');
+  const qrSize           = $('qrSize');
+  const qrError          = $('qrError');
+  const generateQrBtn    = $('generateQrBtn');
+  const batchInput       = $('batchInput');
+  const batchFormat      = $('batchFormat');
+  const batchCols        = $('batchCols');
   const generateBatchBtn = $('generateBatchBtn');
+  const actionBtns       = $('actionBtns');
+  const emptyState       = $('emptyState');
+  const sticker          = $('sticker');
+  const stickerName      = $('stickerName');
+  const stickerLogo      = $('stickerLogo');
+  const bcHolder         = $('bcHolder');
+  const qrHolder         = $('qrHolder');
+  const stickerCode      = $('stickerCode');
+  const stickerMeta      = $('stickerMeta');
+  const batchGrid        = $('batchGrid');
+  const sizeStrip        = $('sizeStrip');
+  const pdfW             = $('pdfW');
+  const pdfH             = $('pdfH');
+  const pdfUnit          = $('pdfUnit');
+  const pdfPerPage       = $('pdfPerPage');
+  const btnPng           = $('btnPng');
+  const btnPdf           = $('btnPdf');
+  const histList         = $('histList');
+  const clearHistBtn     = $('clearHistory');
+  const toast            = $('toast');
+  const toastMsg         = $('toastMsg');
+  const toastSpin        = $('toastSpin');
 
-  // Preview / output
-  const actionBtns    = $('actionBtns');
-  const emptyState    = $('emptyState');
-  const sticker       = $('sticker');
-  const stickerName   = $('stickerName');
-  const stickerLogo   = $('stickerLogo');
-  const bcHolder      = $('bcHolder');
-  const bcSvg         = $('bcSvg');
-  const qrHolder      = $('qrHolder');
-  const stickerCode   = $('stickerCode');
-  const stickerMeta   = $('stickerMeta');
-  const batchGrid     = $('batchGrid');
-  const sizeStrip     = $('sizeStrip');
+  /* ══ THEME ══════════════════════════════════ */
+  document.documentElement.setAttribute('data-theme',
+    localStorage.getItem('bcs-theme') || 'light');
 
-  // PDF size inputs
-  const pdfW          = $('pdfW');
-  const pdfH          = $('pdfH');
-  const pdfUnit       = $('pdfUnit');
-  const pdfPerPage    = $('pdfPerPage');
-  const unitLabel     = $('unitLabel');
-
-  // Buttons
-  const btnPng        = $('btnPng');
-  const btnSvg        = $('btnSvgBtn') || $('btnSvg');
-  const btnPdf        = $('btnPdf');
-
-  // History
-  const histList      = $('histList');
-  const clearHistory  = $('clearHistory');
-
-  // Toast
-  const toast         = $('toast');
-  const toastMsg      = $('toastMsg');
-  const toastSpin     = $('toastSpin');
-
-  /* ── Theme ───────────────────────────────────── */
-  (function(){
-    document.documentElement.setAttribute('data-theme', localStorage.getItem('bcs-theme') || 'light');
-  })();
   themeToggle.addEventListener('click', () => {
     const n = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', n);
     localStorage.setItem('bcs-theme', n);
   });
 
-  /* ── Tabs ────────────────────────────────────── */
+  /* ══ TABS ═══════════════════════════════════ */
   tabs.forEach(t => t.addEventListener('click', () => {
     tabs.forEach(x => x.classList.remove('active'));
     tabPanes.forEach(x => x.classList.remove('active'));
@@ -105,69 +81,68 @@
     $('tab-' + t.dataset.tab).classList.add('active');
   }));
 
-  /* ── Sliders ─────────────────────────────────── */
+  /* ══ SLIDERS ════════════════════════════════ */
   barWidth.addEventListener('input',  () => widthVal.textContent  = barWidth.value);
   barHeight.addEventListener('input', () => heightVal.textContent = barHeight.value);
 
-  /* ── PDF unit label sync ─────────────────────── */
-  pdfUnit.addEventListener('change', () => {
-    document.querySelectorAll('.unit').forEach(u => u.textContent = pdfUnit.value);
-    unitLabel && (unitLabel.textContent = pdfUnit.value);
-  });
+  /* ══ UNIT SYNC ══════════════════════════════ */
+  pdfUnit.addEventListener('change', () =>
+    document.querySelectorAll('.unit').forEach(u => u.textContent = pdfUnit.value)
+  );
 
-  /* ── Format detection ────────────────────────── */
+  /* ══ FORMAT DETECT ══════════════════════════ */
   function detect(v) {
-    v = v.replace(/\s/g,'');
+    v = v.replace(/\s/g, '');
     if (/^\d{13}$/.test(v)) return 'EAN13';
     if (/^\d{8}$/.test(v))  return 'EAN8';
     if (/^\d{12}$/.test(v)) return 'UPC';
     return 'CODE128';
   }
-  function fmt(v, sel) { return sel.value === 'auto' ? detect(v) : sel.value; }
+  function getFmt(v, sel) { return sel.value === 'auto' ? detect(v) : sel.value; }
 
-  /* ════════════════════════════════════════════
-     GENERATE — BARCODE
-  ════════════════════════════════════════════ */
+  /* ══ GENERATE BARCODE ═══════════════════════ */
   function generateBarcode() {
     const raw = barcodeInput.value.trim();
     if (!raw) { shake(barcodeInput); return; }
     try {
-      // Build SVG
-      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       JsBarcode(svg, raw, {
-        format: fmt(raw, formatSelect),
-        lineColor:'#000000', width: parseFloat(barWidth.value),
-        height: parseInt(barHeight.value), displayValue:false,
-        margin:10, background:'#ffffff',
+        format: getFmt(raw, formatSelect),
+        lineColor: '#000000',
+        width: parseFloat(barWidth.value),
+        height: parseInt(barHeight.value),
+        displayValue: false,
+        margin: 8,
+        background: '#ffffff',
       });
       S.bcSvgEl = svg; S.qrCanvas = null; S.batchItems = [];
 
-      // Populate visible sticker
-      bcHolder.innerHTML = ''; bcHolder.appendChild(svg.cloneNode(true));
-      qrHolder.style.display = 'none'; bcHolder.style.display = 'block';
+      bcHolder.innerHTML = '';
+      bcHolder.appendChild(svg.cloneNode(true));
+      qrHolder.style.display = 'none';
+      bcHolder.style.display = 'block';
 
       const name = labelName.value.trim();
-      stickerName.textContent = name; stickerName.style.display = name ? 'block' : 'none';
-      stickerCode.textContent = raw;
+      stickerName.textContent   = name;
+      stickerName.style.display = name ? 'block' : 'none';
+      stickerCode.textContent   = raw;
 
-      // Logo
-      if (S.logoUrl) {
-        stickerLogo.src = S.logoUrl; stickerLogo.style.display = 'block';
-      } else { stickerLogo.style.display = 'none'; }
+      if (S.logoUrl) { stickerLogo.src = S.logoUrl; stickerLogo.style.display = 'block'; }
+      else stickerLogo.style.display = 'none';
 
-      // Meta
-      const price = labelPrice.value.trim(), date = labelDate.value, note = labelNote.value.trim();
-      stickerMeta.innerHTML = [price, date ? '📅 '+date : '', note]
-        .filter(Boolean).map(t=>`<span>${esc(t)}</span>`).join('');
+      stickerMeta.innerHTML = [
+        labelPrice.value.trim(),
+        labelDate.value  ? '📅 ' + labelDate.value : '',
+        labelNote.value.trim(),
+      ].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('');
 
-      showResult('barcode'); addHist(raw, 'barcode');
+      showResult('barcode');
+      addHist(raw, 'barcode');
       S.type = 'barcode';
-    } catch(e) { showErr(e.message); }
+    } catch (e) { showErr(e.message); }
   }
 
-  /* ════════════════════════════════════════════
-     GENERATE — QR
-  ════════════════════════════════════════════ */
+  /* ══ GENERATE QR ════════════════════════════ */
   function generateQR() {
     const raw = qrInput.value.trim();
     if (!raw) { shake(qrInput); return; }
@@ -176,8 +151,11 @@
     document.body.appendChild(tmp);
     try {
       new QRCode(tmp, {
-        text: raw, width: parseInt(qrSize.value), height: parseInt(qrSize.value),
-        colorDark:'#000000', colorLight:'#ffffff',
+        text: raw,
+        width:  parseInt(qrSize.value),
+        height: parseInt(qrSize.value),
+        colorDark:    '#000000',
+        colorLight:   '#ffffff',
         correctLevel: QRCode.CorrectLevel[qrError.value],
       });
       setTimeout(() => {
@@ -190,59 +168,63 @@
         }
         document.body.removeChild(tmp);
         S.bcSvgEl = null; S.batchItems = [];
-
         qrHolder.innerHTML = '';
         if (S.qrCanvas) qrHolder.appendChild(S.qrCanvas.cloneNode(true));
-        qrHolder.style.display = 'block'; bcHolder.style.display = 'none';
-        stickerName.style.display = 'none'; stickerLogo.style.display = 'none';
-        stickerCode.textContent = raw.length > 40 ? raw.slice(0,40)+'…' : raw;
-        stickerMeta.innerHTML = '';
-
-        showResult('qr'); addHist(raw, 'qr');
+        qrHolder.style.display     = 'block';
+        bcHolder.style.display     = 'none';
+        stickerName.style.display  = 'none';
+        stickerLogo.style.display  = 'none';
+        stickerCode.textContent    = raw.length > 40 ? raw.slice(0, 40) + '…' : raw;
+        stickerMeta.innerHTML      = '';
+        showResult('qr');
+        addHist(raw, 'qr');
         S.type = 'qr';
       }, 60);
-    } catch(e) { document.body.removeChild(tmp); showErr(e.message); }
+    } catch (e) { document.body.removeChild(tmp); showErr(e.message); }
   }
 
-  /* ════════════════════════════════════════════
-     GENERATE — BATCH
-  ════════════════════════════════════════════ */
+  /* ══ GENERATE BATCH ═════════════════════════ */
   function generateBatch() {
-    const lines = batchInput.value.split('\n').map(l=>l.trim()).filter(Boolean);
+    const lines = batchInput.value.split('\n').map(l => l.trim()).filter(Boolean);
     if (!lines.length) { shake(batchInput); return; }
-
     S.batchItems = [];
     lines.forEach(code => {
       try {
-        const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-        JsBarcode(svg, code, { format: fmt(code, batchFormat), lineColor:'#000', width:1.8, height:60, displayValue:false, margin:6, background:'#fff' });
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        JsBarcode(svg, code, {
+          format: getFmt(code, batchFormat),
+          lineColor: '#000', width: 1.8, height: 60,
+          displayValue: false, margin: 6, background: '#fff',
+        });
         S.batchItems.push({ code, svgEl: svg, ok: true });
       } catch { S.batchItems.push({ code, svgEl: null, ok: false }); }
     });
-
     S.bcSvgEl = null; S.qrCanvas = null;
-
     const cols = parseInt(batchCols.value);
     batchGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     batchGrid.innerHTML = '';
     S.batchItems.forEach(item => {
-      const div = document.createElement('div'); div.className = 'batch-item';
+      const div = document.createElement('div');
+      div.className = 'batch-item';
       if (item.ok) {
         div.appendChild(item.svgEl.cloneNode(true));
-        const p = document.createElement('p'); p.className = 'batch-code'; p.textContent = item.code;
+        const p = document.createElement('p');
+        p.className = 'batch-code'; p.textContent = item.code;
         div.appendChild(p);
       } else {
-        const e = document.createElement('div'); e.className = 'batch-err'; e.textContent = '✕ '+item.code+' — invalid';
+        const e = document.createElement('div');
+        e.className = 'batch-err';
+        e.textContent = '✕ ' + item.code + ' — invalid';
         div.appendChild(e);
       }
       batchGrid.appendChild(div);
     });
-
-    showResult('batch'); addHist(lines.length+' codes', 'batch');
+    showResult('batch');
+    addHist(lines.length + ' codes', 'batch');
     S.type = 'batch';
   }
 
-  /* ── Show/hide result ────────────────────────── */
+  /* ══ SHOW / ERROR ═══════════════════════════ */
   function showResult(type) {
     emptyState.style.display = 'none';
     sticker.style.display    = type === 'batch' ? 'none' : 'flex';
@@ -251,234 +233,256 @@
     sizeStrip.style.display  = 'flex';
     S.ready = true;
   }
-
-  /* ── Error ───────────────────────────────────── */
   function showErr(msg) {
     emptyState.style.display = 'flex';
     sticker.style.display = batchGrid.style.display = 'none';
-    emptyState.innerHTML = `<div class="err-msg">✕ ${esc(msg)}</div><p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px">Try a different value or format</p>`;
+    emptyState.innerHTML = `<div class="err-msg">✕ ${esc(msg)}</div>
+      <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px">Try a different value or format</p>`;
     setTimeout(() => {
       emptyState.innerHTML = `<div class="empty-bars"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><p>Your barcode will appear here</p>`;
     }, 3000);
   }
 
-  /* ════════════════════════════════════════════
-     LOGO
-  ════════════════════════════════════════════ */
+  /* ══ LOGO ═══════════════════════════════════ */
   logoUpload.addEventListener('change', () => {
     const f = logoUpload.files[0]; if (!f) return;
-    new FileReader().onload = e => {
+    const r = new FileReader();
+    r.onload = e => {
       S.logoUrl = e.target.result;
       logoImg.src = S.logoUrl; logoRow.style.display = 'flex';
       if (S.ready && S.type === 'barcode') {
         stickerLogo.src = S.logoUrl; stickerLogo.style.display = 'block';
       }
     };
-    const r = new FileReader(); r.onload = e => {
-      S.logoUrl = e.target.result;
-      logoImg.src = S.logoUrl; logoRow.style.display = 'flex';
-      if (S.ready && S.type === 'barcode') { stickerLogo.src = S.logoUrl; stickerLogo.style.display = 'block'; }
-    }; r.readAsDataURL(f);
+    r.readAsDataURL(f);
   });
   removeLogo.addEventListener('click', () => {
-    S.logoUrl = null; logoUpload.value = ''; logoRow.style.display = 'none';
-    stickerLogo.style.display = 'none';
+    S.logoUrl = null; logoUpload.value = '';
+    logoRow.style.display = stickerLogo.style.display = 'none';
   });
 
-  /* ════════════════════════════════════════════
-     DOWNLOAD PNG
-  ════════════════════════════════════════════ */
+  /* ══ PNG DOWNLOAD ═══════════════════════════ */
   btnPng.addEventListener('click', () => {
     if (!S.ready) return;
     if (S.type === 'qr' && S.qrCanvas) { dlLink(S.qrCanvas.toDataURL('image/png'), 'qrcode.png'); return; }
     const svg = S.type === 'barcode' ? S.bcSvgEl : (S.batchItems[0]?.svgEl || null);
-    if (svg) svgToPng(svg, url => dlLink(url, 'barcode.png'));
+    if (svg) svgToPNG(svg, 1200, url => dlLink(url, 'barcode.png'));
   });
 
-  /* ════════════════════════════════════════════
-     DOWNLOAD SVG
-  ════════════════════════════════════════════ */
+  /* ══ SVG DOWNLOAD ═══════════════════════════ */
   $('btnSvg').addEventListener('click', () => {
     if (!S.ready) return;
     if (S.type === 'qr' && S.qrCanvas) {
-      const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}"><image href="${S.qrCanvas.toDataURL()}" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}"/></svg>`;
-      dlText(s, 'qrcode.svg', 'image/svg+xml'); return;
+      const d = S.qrCanvas.toDataURL();
+      dlText(`<svg xmlns="http://www.w3.org/2000/svg" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}"><image href="${d}" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}"/></svg>`,
+        'qrcode.svg', 'image/svg+xml'); return;
     }
     const svg = S.type === 'barcode' ? S.bcSvgEl : (S.batchItems[0]?.svgEl || null);
     if (svg) dlText(new XMLSerializer().serializeToString(svg), 'barcode.svg', 'image/svg+xml');
   });
 
-  /* ════════════════════════════════════════════
-     DOWNLOAD PDF  ★ Core Feature ★
-  ════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════
+     PDF DOWNLOAD  ★  v3
+     Strategy:
+       • Convert SVG → high-res PNG canvas (600px tall)
+       • Measure real pixel ratio AFTER rendering
+       • Scale barcode to fill cell width, preserve ratio
+       • Vertically centre ALL content in cell
+  ══════════════════════════════════════════════════════ */
   btnPdf.addEventListener('click', downloadPDF);
 
   async function downloadPDF() {
     if (!S.ready) return;
-    if (!window.jspdf) { showToast('PDF library loading, please try again…', false); return; }
-
+    if (!window.jspdf) { showToast('PDF library loading…', false); return; }
     showToast('Generating PDF…', true);
-
     try {
       const { jsPDF } = window.jspdf;
 
-      // Read size inputs — convert everything to mm
-      let w = parseFloat(pdfW.value) || 80;
-      let h = parseFloat(pdfH.value) || 50;
+      /* paper size → mm */
+      let W = parseFloat(pdfW.value) || 80;
+      let H = parseFloat(pdfH.value) || 50;
       const unit = pdfUnit.value;
-      if (unit === 'in') { w *= 25.4; h *= 25.4; }
-      else if (unit === 'cm') { w *= 10; h *= 10; }
+      if (unit === 'in') { W *= 25.4; H *= 25.4; }
+      else if (unit === 'cm') { W *= 10;  H *= 10;  }
 
+      /* grid */
       const perPage = parseInt(pdfPerPage.value) || 1;
       const count   = S.type === 'batch' ? S.batchItems.length : perPage;
       const cols    = count === 1 ? 1 : count <= 4 ? 2 : count <= 9 ? 3 : 4;
       const rows    = Math.ceil(count / cols);
-      const margin  = 3; // mm
-      const cellW   = (w - margin * 2) / cols;
-      const cellH   = (h - margin * 2) / rows;
+      const MAR     = 2;                        // page margin mm
+      const cellW   = (W - MAR * 2) / cols;
+      const cellH   = (H - MAR * 2) / rows;
 
       const pdf = new jsPDF({
-        orientation: w >= h ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: [w, h],
+        orientation: W > H ? 'landscape' : 'portrait',
+        unit: 'mm', format: [W, H],
       });
 
       for (let i = 0; i < count; i++) {
-        const col  = i % cols;
-        const row  = Math.floor(i / cols);
-        const xOff = margin + col * cellW;
-        const yOff = margin + row * cellH;
-        await addCellToPDF(pdf, xOff, yOff, cellW, cellH, i);
+        const col  = i % cols, row = Math.floor(i / cols);
+        await drawCell(pdf,
+          MAR + col * cellW, MAR + row * cellH,
+          cellW, cellH, i);
       }
 
-      const stamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
-      const wRnd  = Math.round(parseFloat(pdfW.value) || 80);
-      const hRnd  = Math.round(parseFloat(pdfH.value) || 50);
-      pdf.save(`barcode_${stamp}_${wRnd}x${hRnd}${unit}.pdf`);
+      const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const wR    = Math.round(parseFloat(pdfW.value) || 80);
+      const hR    = Math.round(parseFloat(pdfH.value) || 50);
+      pdf.save(`barcode_${stamp}_${wR}x${hR}${unit}.pdf`);
       showToast('PDF saved ✓', false);
-
-    } catch(e) {
-      console.error(e);
-      showToast('Error: ' + e.message, false);
-    }
+    } catch (e) { console.error(e); showToast('Error: ' + e.message, false); }
   }
 
-  async function addCellToPDF(pdf, x, y, cw, ch, idx) {
-    const cx   = x + cw / 2;   // horizontal center of cell
-    const pad  = 2;             // mm padding inside cell
+  /* ─────────────────────────────────────────────────────
+     drawCell  — robust centering
+     1. Render image to canvas to get REAL pixel dimensions
+     2. Compute exact mm sizes preserving aspect ratio
+     3. Measure total content height
+     4. Start at (cellH - totalH) / 2  →  perfect centre
+  ───────────────────────────────────────────────────── */
+  async function drawCell(pdf, x0, y0, cw, ch, idx) {
+    const PAD  = 1.5;
+    const USEW = cw - PAD * 2;
+    const midX = x0 + cw / 2;
 
-    // ── Step 1: measure all content heights first ──────────────
-    const hasLogo  = !!(S.logoUrl && S.type === 'barcode');
-    const hasName  = !!(S.type === 'barcode' && labelName.value.trim());
-    const meta     = S.type === 'barcode'
+    /* flags */
+    const isBC    = S.type === 'barcode';
+    const isQR    = S.type === 'qr';
+    const isBatch = S.type === 'batch';
+
+    const hasLogo = !!(S.logoUrl && isBC);
+    const hasName = !!(isBC && labelName.value.trim());
+    const metaArr = isBC
       ? [labelPrice.value.trim(), labelDate.value, labelNote.value.trim()].filter(Boolean)
       : [];
-    const hasMeta  = meta.length > 0;
 
-    // logo
-    const logoW = hasLogo ? Math.min(16, cw * 0.4) : 0;
-    const logoH = hasLogo ? logoW * 0.5 : 0;
-    const logoGap = hasLogo ? 1.5 : 0;
-
-    // product name
-    const nameH  = hasName ? 4.5 : 0;
-    const nameGap = hasName ? 1 : 0;
-
-    // barcode / QR image
-    let imgData = null, iw = 0, ih = 0;
-    if (S.type === 'barcode' && S.bcSvgEl) {
-      imgData = await svgToDataUrl(S.bcSvgEl);
-      iw = Math.min(cw * 0.92, cw - pad * 2);
-      ih = iw * 0.42;
-    } else if (S.type === 'qr' && S.qrCanvas) {
-      imgData = S.qrCanvas.toDataURL('image/png');
-      const sz = Math.min(cw * 0.8, ch * 0.72);
-      iw = sz; ih = sz;
-    } else if (S.type === 'batch' && S.batchItems[idx]?.ok) {
-      imgData = await svgToDataUrl(S.batchItems[idx].svgEl);
-      iw = Math.min(cw * 0.92, cw - pad * 2);
-      ih = iw * 0.42;
-    }
-    const imgGap = imgData ? 1.5 : 0;
-
-    // code text
     let code = '';
-    if (S.type === 'barcode')   code = barcodeInput.value.trim();
-    else if (S.type === 'qr')   code = qrInput.value.trim().slice(0, 42);
+    if (isBC)              code = barcodeInput.value.trim();
+    else if (isQR)         code = qrInput.value.trim().slice(0, 44);
     else if (S.batchItems[idx]) code = S.batchItems[idx].code;
-    const codeH  = code ? 3.5 : 0;
-    const codeGap = code ? 1 : 0;
 
-    // meta
-    const metaH  = hasMeta ? 3 : 0;
+    /* ── render image to canvas, measure real ratio ── */
+    let imgPNG = null, IMG_W = 0, IMG_H = 0;
 
-    // ── Step 2: total content height ──────────────────────────
-    const totalH = logoH + logoGap
-                 + nameH + nameGap
-                 + ih    + imgGap
-                 + codeH + codeGap
-                 + metaH;
+    if (isBC && S.bcSvgEl) {
+      const canvas = await svgToCanvas(S.bcSvgEl, 1600, 600);
+      imgPNG = canvas.toDataURL('image/png');
+      const ratio = canvas.width / canvas.height;   // real pixel ratio
+      IMG_W = USEW;
+      IMG_H = IMG_W / ratio;
+      /* clamp height so it doesn't overflow cell */
+      const maxH = ch - PAD * 2 - (hasName ? 5 : 0) - (code ? 4.5 : 0) - (metaArr.length ? 3.5 : 0);
+      if (IMG_H > maxH) { IMG_H = maxH; IMG_W = IMG_H * ratio; }
 
-    // ── Step 3: start Y so content is vertically centred ──────
-    let curY = y + (ch - totalH) / 2;
-    // clamp so we never go above the cell top
-    if (curY < y + pad) curY = y + pad;
+    } else if (isQR && S.qrCanvas) {
+      imgPNG = S.qrCanvas.toDataURL('image/png');
+      const maxSide = Math.min(USEW,
+        ch - PAD*2 - (code ? 5 : 0));
+      IMG_W = maxSide; IMG_H = maxSide;
 
-    // ── Step 4: draw each element ──────────────────────────────
+    } else if (isBatch && S.batchItems[idx]?.ok) {
+      const canvas = await svgToCanvas(S.batchItems[idx].svgEl, 1600, 600);
+      imgPNG = canvas.toDataURL('image/png');
+      const ratio = canvas.width / canvas.height;
+      IMG_W = USEW;
+      IMG_H = IMG_W / ratio;
+      const maxH = ch - PAD * 2 - (code ? 4.5 : 0);
+      if (IMG_H > maxH) { IMG_H = maxH; IMG_W = IMG_H * ratio; }
+    }
 
+    /* ── block heights ── */
+    const LOGO_W = hasLogo ? Math.min(14, USEW * 0.35) : 0;
+    const LOGO_H = hasLogo ? LOGO_W * 0.5 : 0;
+    const LOGO_G = hasLogo ? 1.2 : 0;
+    const NAME_H = hasName ? 4.2 : 0;
+    const NAME_G = hasName ? 1   : 0;
+    const IMG_G  = imgPNG  ? 1   : 0;
+    const CODE_H = code    ? 3.5 : 0;
+    const CODE_G = code    ? 0.8 : 0;
+    const META_H = metaArr.length ? 3 : 0;
+
+    const totalH =
+      LOGO_H + LOGO_G +
+      NAME_H + NAME_G +
+      IMG_H  + IMG_G  +
+      CODE_H + CODE_G +
+      META_H;
+
+    /* ── start Y: vertically centred ── */
+    let y = y0 + (ch - totalH) / 2;
+    if (y < y0 + PAD) y = y0 + PAD;
+
+    /* ── draw ── */
     // Logo
     if (hasLogo) {
       try {
         const ext = S.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-        pdf.addImage(S.logoUrl, ext, cx - logoW/2, curY, logoW, logoH);
-        curY += logoH + logoGap;
-      } catch(_) {}
+        pdf.addImage(S.logoUrl, ext, midX - LOGO_W / 2, y, LOGO_W, LOGO_H);
+      } catch (_) {}
+      y += LOGO_H + LOGO_G;
     }
 
     // Product name
     if (hasName) {
-      pdf.setFont('helvetica','bold').setFontSize(8).setTextColor(0,0,0);
-      pdf.text(labelName.value.trim(), cx, curY + 3.2, { align:'center', maxWidth: cw - pad*2 });
-      curY += nameH + nameGap;
+      const fs = Math.max(6, Math.min(10, cw * 0.22));
+      pdf.setFont('helvetica', 'bold').setFontSize(fs).setTextColor(0, 0, 0);
+      pdf.text(labelName.value.trim(), midX, y + NAME_H * 0.8,
+        { align: 'center', maxWidth: USEW });
+      y += NAME_H + NAME_G;
     }
 
-    // Barcode / QR image — CENTRED
-    if (imgData) {
-      pdf.addImage(imgData, 'PNG', cx - iw/2, curY, iw, ih);
-      curY += ih + imgGap;
+    // Barcode / QR image — horizontally centred
+    if (imgPNG) {
+      pdf.addImage(imgPNG, 'PNG', midX - IMG_W / 2, y, IMG_W, IMG_H);
+      y += IMG_H + IMG_G;
     }
 
     // Code number
     if (code) {
-      pdf.setFont('courier','normal').setFontSize(7).setTextColor(40,40,40);
-      pdf.text(code, cx, curY + 2.5, { align:'center', maxWidth: cw - pad*2 });
-      curY += codeH + codeGap;
+      const fs = Math.max(5, Math.min(8, cw * 0.15));
+      pdf.setFont('courier', 'normal').setFontSize(fs).setTextColor(30, 30, 30);
+      pdf.text(code, midX, y + CODE_H * 0.8,
+        { align: 'center', maxWidth: USEW });
+      y += CODE_H + CODE_G;
     }
 
-    // Meta tags
-    if (hasMeta) {
-      pdf.setFont('courier','normal').setFontSize(6).setTextColor(90,90,90);
-      pdf.text(meta.join('  ·  '), cx, curY + 2, { align:'center', maxWidth: cw - pad*2 });
+    // Meta
+    if (metaArr.length) {
+      const fs = Math.max(4, Math.min(6, cw * 0.11));
+      pdf.setFont('courier', 'normal').setFontSize(fs).setTextColor(80, 80, 80);
+      pdf.text(metaArr.join('  ·  '), midX, y + META_H * 0.8,
+        { align: 'center', maxWidth: USEW });
     }
   }
 
-  /* ════════════════════════════════════════════
-     HISTORY
-  ════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════
+     HISTORY — persisted in localStorage
+  ══════════════════════════════════════════════════════ */
+  function loadHist() {
+    try { S.history = JSON.parse(localStorage.getItem('bcg-history') || '[]'); }
+    catch { S.history = []; }
+  }
+  function saveHist() {
+    try { localStorage.setItem('bcg-history', JSON.stringify(S.history)); } catch {}
+  }
   function addHist(code, type) {
-    S.history.unshift({code, type});
-    if (S.history.length > 30) S.history.pop();
+    if (S.history[0]?.code === code && S.history[0]?.type === type) return;
+    S.history.unshift({ code, type, ts: Date.now() });
+    if (S.history.length > 50) S.history.pop();
+    saveHist();
     renderHist();
   }
   function renderHist() {
-    if (!S.history.length) { histList.innerHTML = '<p class="hist-empty">Nothing yet</p>'; return; }
-    histList.innerHTML = S.history.map((it, i) =>
-      `<div class="hist-item" data-i="${i}">
+    if (!S.history.length) {
+      histList.innerHTML = '<p class="hist-empty">Nothing yet</p>'; return;
+    }
+    histList.innerHTML = S.history.map((it, i) => `
+      <div class="hist-item" data-i="${i}" title="${esc(it.code)}">
         <span class="hist-dot d-${it.type}"></span>
         <span class="hist-code">${esc(it.code)}</span>
         <span class="hist-type">${it.type.toUpperCase()}</span>
-      </div>`
-    ).join('');
+      </div>`).join('');
     histList.querySelectorAll('.hist-item').forEach(el =>
       el.addEventListener('click', () => {
         const it = S.history[+el.dataset.i];
@@ -494,60 +498,86 @@
       })
     );
   }
-  clearHistory.addEventListener('click', () => { S.history = []; renderHist(); });
+  clearHistBtn.addEventListener('click', () => {
+    S.history = []; saveHist(); renderHist();
+  });
 
-  /* ════════════════════════════════════════════
-     TOAST
-  ════════════════════════════════════════════ */
+  /* ══ TOAST ══════════════════════════════════ */
   let toastTimer;
   function showToast(msg, spin) {
     toastMsg.textContent = msg;
     toastSpin.style.display = spin ? 'block' : 'none';
     toast.style.display = 'flex';
     clearTimeout(toastTimer);
-    if (!spin) toastTimer = setTimeout(() => toast.style.display = 'none', 2600);
+    if (!spin) toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 2800);
   }
 
-  /* ════════════════════════════════════════════
-     HELPERS
-  ════════════════════════════════════════════ */
-  function svgToDataUrl(svgEl) {
+  /* ══ HELPERS ════════════════════════════════ */
+
+  /* Render SVG to canvas at given target dimensions, preserving ratio */
+  function svgToCanvas(svgEl, targetW, targetH) {
     return new Promise(resolve => {
+      /* Serialise and get natural SVG dimensions */
       const xml  = new XMLSerializer().serializeToString(svgEl);
-      const blob = new Blob([xml], {type:'image/svg+xml'});
+      /* Inject explicit width/height so browsers render it properly */
+      const vb   = svgEl.viewBox && svgEl.viewBox.baseVal;
+      const svgW = vb && vb.width  ? vb.width  : (svgEl.width?.baseVal?.value  || targetW);
+      const svgH = vb && vb.height ? vb.height : (svgEl.height?.baseVal?.value || targetH);
+      const ratio = svgW / svgH;
+      /* Canvas size: respect ratio, use targetH as reference */
+      const cH = targetH;
+      const cW = Math.round(cH * ratio);
+      const blob = new Blob([xml], { type: 'image/svg+xml' });
       const url  = URL.createObjectURL(blob);
       const img  = new Image();
       img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.width || 400; c.height = img.height || 200;
+        const c   = document.createElement('canvas');
+        c.width   = cW; c.height = cH;
         const ctx = c.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
-        ctx.drawImage(img,0,0); URL.revokeObjectURL(url);
-        resolve(c.toDataURL('image/png'));
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, cW, cH);
+        ctx.drawImage(img, 0, 0, cW, cH);
+        URL.revokeObjectURL(url);
+        resolve(c);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        const c = document.createElement('canvas');
+        c.width = targetW; c.height = targetH; resolve(c);
       };
       img.src = url;
     });
   }
-  function svgToPng(svgEl, cb) {
-    svgToDataUrl(svgEl).then(cb);
-  }
-  function dlLink(url, name) { const a = document.createElement('a'); a.href=url; a.download=name; a.click(); }
-  function dlText(c, name, type) {
-    const url = URL.createObjectURL(new Blob([c],{type}));
-    dlLink(url, name); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  function shake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); el.addEventListener('animationend', () => el.classList.remove('shake'), {once:true}); }
-  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  /* ════════════════════════════════════════════
-     KEY BINDINGS + INIT
-  ════════════════════════════════════════════ */
-  barcodeInput.addEventListener('keydown', e => { if (e.key==='Enter') generateBarcode(); });
-  qrInput.addEventListener('keydown', e => { if (e.key==='Enter' && e.ctrlKey) generateQR(); });
-  generateBtn.addEventListener('click', generateBarcode);
-  generateQrBtn.addEventListener('click', generateQR);
+  function svgToPNG(svgEl, targetH, cb) {
+    svgToCanvas(svgEl, targetH * 3, targetH).then(c => cb(c.toDataURL('image/png')));
+  }
+
+  function dlLink(url, name) {
+    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  }
+  function dlText(content, name, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    dlLink(url, name);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function shake(el) {
+    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+    el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+  }
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ══ BINDINGS + INIT ════════════════════════ */
+  barcodeInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateBarcode(); });
+  qrInput.addEventListener('keydown',      e => { if (e.key === 'Enter' && e.ctrlKey) generateQR(); });
+  generateBtn.addEventListener('click',      generateBarcode);
+  generateQrBtn.addEventListener('click',    generateQR);
   generateBatchBtn.addEventListener('click', generateBatch);
 
+  loadHist();
   renderHist();
 
 })();
