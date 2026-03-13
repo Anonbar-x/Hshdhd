@@ -1,40 +1,64 @@
 /* ══════════════════════════════════════════════════════
    BarcodeStudio Pro — script.js
+   PDF Download Edition
    ══════════════════════════════════════════════════════ */
 (function () {
   'use strict';
 
-  /* ── State ──────────────────────────────────────────── */
+  /* ══════════════════════════════════════════════════
+     PRINTER PRESETS — all real-world sizes
+  ══════════════════════════════════════════════════ */
+  const PRESETS = {
+    thermal_58:  { name:'Thermal 58mm',  wMM:58,  hMM:40  },
+    thermal_80:  { name:'Thermal 80mm',  wMM:80,  hMM:50  },
+    label_50x25: { name:'Label 50×25',   wMM:50,  hMM:25  },
+    label_100x50:{ name:'Label 100×50',  wMM:100, hMM:50  },
+    a4:          { name:'A4',            wMM:210, hMM:297 },
+    a5:          { name:'A5',            wMM:148, hMM:210 },
+    letter:      { name:'US Letter',     wMM:215.9,hMM:279.4},
+    custom:      { name:'Custom',        wMM:50,  hMM:30  },
+  };
+
+  /* ══════════════════════════════════════════════════
+     STATE
+  ══════════════════════════════════════════════════ */
   const S = {
-    type: 'barcode',        // barcode | qr | batch
-    history: [],
-    logoDataUrl: null,      // uploaded logo
-    // print settings
-    print: {
-      w: 50, h: 25, unit: 'mm',
-      orient: 'portrait',
-      perPage: 1,
-      printer: 'thermal',
-      dpi: 300,
-      margin: 3,
-      border: 'none',
-      cropMarks: false,
-      nameFontSize: 10,
-      codeFontSize: 8,
+    type:     'barcode',  // barcode | qr | batch
+    history:  [],
+    logoUrl:  null,
+    ready:    false,      // barcode generated?
+    paper: {
+      presetId:   'thermal_58',
+      wMM:        58,
+      hMM:        40,
+      orient:     'portrait',
+      perPage:    1,
+      marginMM:   3,
     },
   };
 
-  /* ── DOM shortcuts ──────────────────────────────────── */
-  const $ = id => document.getElementById(id);
+  /* ══════════════════════════════════════════════════
+     DOM
+  ══════════════════════════════════════════════════ */
+  const $  = id => document.getElementById(id);
+  const qs = s  => document.querySelector(s);
 
-  // Topbar
-  const themeToggle = $('themeToggle');
+  const themeToggle   = $('themeToggle');
+  const tabs          = document.querySelectorAll('.tab');
+  const tabContents   = document.querySelectorAll('.tab-content');
 
-  // Tabs
-  const tabs        = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tab-content');
+  // Step 1 — size
+  const ppBtns        = document.querySelectorAll('.pp-btn');
+  const customSizeBox = $('customSizeBox');
+  const customW       = $('customW');
+  const customH       = $('customH');
+  const customUnit    = $('customUnit');
+  const segBtns       = document.querySelectorAll('.seg');
+  const stickersPerPage = $('stickersPerPage');
+  const marginSize    = $('marginSize');
+  const sizeIndicator = $('sizeIndicatorText');
 
-  // Barcode tab
+  // Step 2 — barcode
   const barcodeInput  = $('barcodeInput');
   const formatSelect  = $('formatSelect');
   const labelName     = $('labelName');
@@ -46,728 +70,597 @@
   const widthVal      = $('widthVal');
   const heightVal     = $('heightVal');
   const generateBtn   = $('generateBtn');
-
-  // QR tab
-  const qrInput        = $('qrInput');
-  const qrSize         = $('qrSize');
-  const qrError        = $('qrError');
-  const generateQrBtn  = $('generateQrBtn');
-
-  // Batch tab
-  const batchInput       = $('batchInput');
-  const batchFormat      = $('batchFormat');
-  const batchCols        = $('batchCols');
+  const logoUpload    = $('logoUpload');
+  const logoRow       = $('logoRow');
+  const logoImg       = $('logoImg');
+  const removeLogo    = $('removeLogo');
+  const qrInput       = $('qrInput');
+  const qrSize        = $('qrSize');
+  const qrError       = $('qrError');
+  const generateQrBtn = $('generateQrBtn');
+  const batchInput    = $('batchInput');
+  const batchFormat   = $('batchFormat');
+  const batchCols     = $('batchCols');
   const generateBatchBtn = $('generateBatchBtn');
 
   // Preview
-  const previewActions = $('previewActions');
-  const previewEmpty   = $('previewEmpty');
-  const stickerArea    = $('stickerArea');
-  const barcodeSvg     = $('barcodeSvg');
-  const barcodeHolder  = $('barcodeHolder');
-  const qrHolder       = $('qrHolder');
-  const stickerName    = $('stickerName');
-  const stickerCode    = $('stickerCode');
-  const stickerMeta    = $('stickerMeta');
-  const metaPrice      = $('metaPrice');
-  const metaDate       = $('metaDate');
-  const metaNote       = $('metaNote');
-  const batchOutput    = $('batchOutput');
+  const previewBtns   = $('previewBtns');
+  const paperEmpty    = $('paperEmpty');
+  const paperSheet    = $('paperSheet');
+  const pdfInfoStrip  = $('pdfInfoStrip');
+  const pdfInfoText   = $('pdfInfoText');
+  const downloadPng   = $('downloadPng');
+  const downloadSvgBtn= $('downloadSvgBtn');
+  const downloadPdfBtn= $('downloadPdfBtn');
+  const historyList   = $('historyList');
+  const clearHistory  = $('clearHistory');
+  const pdfToast      = $('pdfToast');
+  const toastMsg      = $('toastMsg');
 
-  // Buttons
-  const downloadPng  = $('downloadPng');
-  const downloadSvg  = $('downloadSvg');
-  const printBtn     = $('printBtn');
-  const clearHistory = $('clearHistory');
-  const historyList  = $('historyList');
-  const printFrame   = $('printFrame');
+  // Hidden SVG elements for generation
+  let barcodeSvg = null;
+  let qrCanvas   = null;
+  // Batch SVGs
+  let batchSVGs  = [];
 
-  // Modal
-  const printModal   = $('printModal');
-  const closeModal   = $('closeModal');
-  const cancelPrint  = $('cancelPrint');
-  const confirmPrint = $('confirmPrint');
-
-  // Modal settings
-  const presetBtns    = document.querySelectorAll('.preset-btn');
-  const stickerW      = $('stickerW');
-  const stickerH      = $('stickerH');
-  const stickerUnit   = $('stickerUnit');
-  const segBtns       = document.querySelectorAll('.seg');
-  const stickersPerPage = $('stickersPerPage');
-  const printerBtns   = document.querySelectorAll('.printer-btn');
-  const dpiSelect     = $('dpiSelect');
-  const marginSize    = $('marginSize');
-  const borderStyle   = $('borderStyle');
-  const showCropMarks = $('showCropMarks');
-  const nameFontSize  = $('nameFontSize');
-  const codeFontSize  = $('codeFontSize');
-  const logoUpload    = $('logoUpload');
-  const logoPreviewWrap = $('logoPreviewWrap');
-  const logoPreviewImg  = $('logoPreviewImg');
-  const removeLogo    = $('removeLogo');
-  const logoSizeField = $('logoSizeField');
-  const logoWidth     = $('logoWidth');
-  const printPreviewSheet = $('printPreviewSheet');
-  const previewNote   = $('previewNote');
-
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
      THEME
-  ════════════════════════════════════════════════════ */
-  function initTheme() {
+  ══════════════════════════════════════════════════ */
+  (function initTheme() {
     const t = localStorage.getItem('bcs-theme') || 'light';
     document.documentElement.setAttribute('data-theme', t);
-  }
+  })();
   themeToggle.addEventListener('click', () => {
-    const cur = document.documentElement.getAttribute('data-theme');
-    const nxt = cur === 'dark' ? 'light' : 'dark';
+    const nxt = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', nxt);
     localStorage.setItem('bcs-theme', nxt);
   });
 
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
      TABS
-  ════════════════════════════════════════════════════ */
-  tabs.forEach(tab => tab.addEventListener('click', () => {
-    tabs.forEach(t => t.classList.remove('active'));
-    tabContents.forEach(c => c.classList.remove('active'));
-    tab.classList.add('active');
-    S.type = tab.dataset.tab;
-    $('tab-' + tab.dataset.tab).classList.add('active');
+  ══════════════════════════════════════════════════ */
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    tabContents.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    S.type = t.dataset.tab;
+    $('tab-' + t.dataset.tab).classList.add('active');
   }));
 
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
      SLIDERS
-  ════════════════════════════════════════════════════ */
+  ══════════════════════════════════════════════════ */
   barWidth.addEventListener('input',  () => widthVal.textContent  = barWidth.value);
   barHeight.addEventListener('input', () => heightVal.textContent = barHeight.value);
 
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
+     STEP 1 — PAPER SIZE
+  ══════════════════════════════════════════════════ */
+  ppBtns.forEach(btn => btn.addEventListener('click', () => {
+    ppBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const id = btn.dataset.id;
+    S.paper.presetId = id;
+    customSizeBox.style.display = id === 'custom' ? 'block' : 'none';
+    if (id !== 'custom') {
+      S.paper.wMM = PRESETS[id].wMM;
+      S.paper.hMM = PRESETS[id].hMM;
+    } else {
+      readCustomSize();
+    }
+    refreshSizeIndicator();
+    if (S.ready) renderPreview();
+  }));
+
+  // Custom size inputs
+  [customW, customH, customUnit].forEach(el =>
+    el.addEventListener('input', () => { readCustomSize(); refreshSizeIndicator(); if (S.ready) renderPreview(); })
+  );
+
+  function readCustomSize() {
+    let w = parseFloat(customW.value) || 50;
+    let h = parseFloat(customH.value) || 30;
+    const u = customUnit.value;
+    if (u === 'in') { w *= 25.4; h *= 25.4; }
+    else if (u === 'cm') { w *= 10; h *= 10; }
+    else if (u === 'px') { w = w / 3.7795; h = h / 3.7795; }
+    S.paper.wMM = w; S.paper.hMM = h;
+  }
+
+  // Orientation
+  segBtns.forEach(btn => btn.addEventListener('click', () => {
+    segBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    S.paper.orient = btn.dataset.orient;
+    refreshSizeIndicator();
+    if (S.ready) renderPreview();
+  }));
+
+  // Per page & margin
+  stickersPerPage.addEventListener('change', () => {
+    S.paper.perPage = parseInt(stickersPerPage.value);
+    refreshSizeIndicator();
+    if (S.ready) renderPreview();
+  });
+  marginSize.addEventListener('input', () => {
+    S.paper.marginMM = parseFloat(marginSize.value) || 0;
+    if (S.ready) renderPreview();
+  });
+
+  function refreshSizeIndicator() {
+    let { wMM, hMM, orient } = S.paper;
+    if (orient === 'landscape') [wMM, hMM] = [hMM, wMM];
+    const presetName = S.paper.presetId === 'custom' ? 'Custom' : PRESETS[S.paper.presetId].name;
+    sizeIndicator.textContent =
+      `${presetName}  ·  ${Math.round(wMM)} × ${Math.round(hMM)} mm  ·  ${orient.charAt(0).toUpperCase()+orient.slice(1)}  ·  ${S.paper.perPage} sticker${S.paper.perPage > 1 ? 's' : ''}/page`;
+  }
+  refreshSizeIndicator();
+
+  /* ══════════════════════════════════════════════════
      FORMAT DETECTION
-  ════════════════════════════════════════════════════ */
-  function detectFormat(v) {
-    v = v.replace(/\s/g, '');
+  ══════════════════════════════════════════════════ */
+  function detectFmt(v) {
+    v = v.replace(/\s/g,'');
     if (/^\d{13}$/.test(v)) return 'EAN13';
     if (/^\d{8}$/.test(v))  return 'EAN8';
     if (/^\d{12}$/.test(v)) return 'UPC';
     return 'CODE128';
   }
-  function fmt(v, sel) {
-    return sel.value === 'auto' ? detectFormat(v) : sel.value;
-  }
+  function getFmt(v, sel) { return sel.value === 'auto' ? detectFmt(v) : sel.value; }
 
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
      GENERATE — BARCODE
-  ════════════════════════════════════════════════════ */
+  ══════════════════════════════════════════════════ */
   function generateBarcode() {
     const raw = barcodeInput.value.trim();
     if (!raw) { shake(barcodeInput); return; }
     try {
-      qrHolder.style.display    = 'none';
-      barcodeHolder.style.display = 'block';
+      // Create hidden SVG
+      barcodeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       JsBarcode(barcodeSvg, raw, {
-        format:       fmt(raw, formatSelect),
-        lineColor:    '#000000',
-        width:        parseFloat(barWidth.value),
-        height:       parseInt(barHeight.value),
-        displayValue: false,
-        margin:       10,
-        background:   '#ffffff',
+        format: getFmt(raw, formatSelect),
+        lineColor: '#000000', width: parseFloat(barWidth.value),
+        height: parseInt(barHeight.value), displayValue: false,
+        margin: 10, background: '#ffffff',
       });
-      const name  = labelName.value.trim();
-      const price = labelPrice.value.trim();
-      const date  = labelDate.value;
-      const note  = labelNote.value.trim();
-      stickerName.textContent   = name;
-      stickerName.style.display = name ? 'block' : 'none';
-      stickerCode.textContent   = raw;
-      metaPrice.textContent     = price;
-      metaDate.textContent      = date ? '📅 ' + date : '';
-      metaNote.textContent      = note;
-      stickerMeta.style.display = (price || date || note) ? 'flex' : 'none';
-      showSticker(); addHistory(raw, 'barcode'); S.type = 'barcode';
-    } catch (e) { showError(e.message || 'Invalid barcode value'); }
+      batchSVGs = []; qrCanvas = null;
+      S.type = 'barcode'; S.ready = true;
+      renderPreview();
+      addHistory(raw, 'barcode');
+      showActionBar();
+      updatePdfInfo(raw);
+    } catch(e) { showErr(e.message); }
   }
 
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
      GENERATE — QR
-  ════════════════════════════════════════════════════ */
+  ══════════════════════════════════════════════════ */
   function generateQR() {
     const raw = qrInput.value.trim();
     if (!raw) { shake(qrInput); return; }
     try {
-      qrHolder.innerHTML = '';
-      qrHolder.style.display    = 'block';
-      barcodeHolder.style.display = 'none';
-      new QRCode(qrHolder, {
-        text: raw,
-        width:  parseInt(qrSize.value),
-        height: parseInt(qrSize.value),
-        colorDark:  '#000000', colorLight: '#ffffff',
+      const holder = document.createElement('div');
+      holder.style.cssText = 'position:absolute;left:-9999px;top:-9999px';
+      document.body.appendChild(holder);
+      new QRCode(holder, {
+        text: raw, width: parseInt(qrSize.value), height: parseInt(qrSize.value),
+        colorDark:'#000000', colorLight:'#ffffff',
         correctLevel: QRCode.CorrectLevel[qrError.value],
       });
-      stickerName.style.display = 'none';
-      stickerCode.textContent   = raw.length > 40 ? raw.slice(0,40) + '…' : raw;
-      stickerMeta.style.display = 'none';
-      showSticker(); addHistory(raw, 'qr'); S.type = 'qr';
-    } catch (e) { showError('QR failed: ' + e.message); }
+      setTimeout(() => {
+        qrCanvas = holder.querySelector('canvas');
+        if (qrCanvas) {
+          const tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = qrCanvas.width; tmpCanvas.height = qrCanvas.height;
+          tmpCanvas.getContext('2d').drawImage(qrCanvas, 0, 0);
+          qrCanvas = tmpCanvas;
+        }
+        document.body.removeChild(holder);
+        barcodeSvg = null; batchSVGs = [];
+        S.type = 'qr'; S.ready = true;
+        renderPreview();
+        addHistory(raw, 'qr');
+        showActionBar();
+        updatePdfInfo(raw);
+      }, 50);
+    } catch(e) { showErr(e.message); }
   }
 
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
      GENERATE — BATCH
-  ════════════════════════════════════════════════════ */
+  ══════════════════════════════════════════════════ */
   function generateBatch() {
     const lines = batchInput.value.split('\n').map(l=>l.trim()).filter(Boolean);
     if (!lines.length) { shake(batchInput); return; }
-    const cols = parseInt(batchCols.value);
-    batchOutput.innerHTML = '';
-    batchOutput.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    batchSVGs = [];
     lines.forEach(code => {
-      const item = document.createElement('div');
-      item.className = 'batch-item';
       try {
         const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-        JsBarcode(svg, code, { format: fmt(code, batchFormat), lineColor:'#000', width:1.8, height:60, displayValue:false, margin:6, background:'#fff' });
-        const p = document.createElement('p');
-        p.className = 'batch-item-code'; p.textContent = code;
-        item.appendChild(svg); item.appendChild(p);
-      } catch {
-        const e = document.createElement('div');
-        e.className = 'batch-item-error'; e.textContent = '✕ ' + code + ' — invalid';
-        item.appendChild(e);
-      }
-      batchOutput.appendChild(item);
+        JsBarcode(svg, code, { format: getFmt(code, batchFormat), lineColor:'#000', width:1.8, height:60, displayValue:false, margin:6, background:'#fff' });
+        batchSVGs.push({ code, svg, ok: true });
+      } catch { batchSVGs.push({ code, svg:null, ok:false }); }
     });
-    stickerArea.style.display  = 'none';
-    batchOutput.style.display  = 'grid';
-    previewEmpty.style.display = 'none';
-    previewActions.style.display = 'flex';
-    S.type = 'batch';
+    barcodeSvg = null; qrCanvas = null;
+    S.type = 'batch'; S.ready = true;
+    renderPreview();
     addHistory(lines.length + ' codes', 'batch');
+    showActionBar();
+    updatePdfInfo(lines.length + ' barcodes');
   }
 
-  /* ════════════════════════════════════════════════════
-     SHOW / ERROR helpers
-  ════════════════════════════════════════════════════ */
-  function showSticker() {
-    batchOutput.style.display  = 'none';
-    previewEmpty.style.display = 'none';
-    stickerArea.style.display  = 'flex';
-    previewActions.style.display = 'flex';
-    stickerArea.style.animation = 'none'; void stickerArea.offsetWidth; stickerArea.style.animation = '';
-  }
-  function showError(msg) {
-    stickerArea.style.display = batchOutput.style.display = 'none';
-    previewActions.style.display = 'none';
-    previewEmpty.style.display = 'flex';
-    previewEmpty.innerHTML = `<div class="error-msg">✕ ${esc(msg)}</div><p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;">Try a different value or format</p>`;
-    setTimeout(resetEmpty, 3000);
-  }
-  function resetEmpty() {
-    previewEmpty.innerHTML = `<div class="empty-bars" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><p>Nothing generated yet</p>`;
-  }
+  /* ══════════════════════════════════════════════════
+     RENDER PREVIEW — paper sheet in stage
+  ══════════════════════════════════════════════════ */
+  const PX_PER_MM = 3.7795275591;
 
-  /* ════════════════════════════════════════════════════
-     HISTORY
-  ════════════════════════════════════════════════════ */
-  function addHistory(code, type) {
-    S.history.unshift({code, type});
-    if (S.history.length > 30) S.history.pop();
-    renderHistory();
-  }
-  function renderHistory() {
-    if (!S.history.length) {
-      historyList.innerHTML = '<p class="history-empty">Generated codes will appear here</p>'; return;
-    }
-    historyList.innerHTML = S.history.map((item, i) => `
-      <div class="history-item" data-index="${i}">
-        <span class="history-dot dot-${item.type}"></span>
-        <span class="history-code">${esc(item.code)}</span>
-        <span class="history-type">${item.type.toUpperCase()}</span>
-      </div>`).join('');
-    historyList.querySelectorAll('.history-item').forEach(el =>
-      el.addEventListener('click', () => {
-        const it = S.history[+el.dataset.index];
-        if (it.type === 'barcode') { barcodeInput.value = it.code; document.querySelector('.tab[data-tab="barcode"]').click(); setTimeout(generateBarcode,50); }
-        else if (it.type === 'qr') { qrInput.value = it.code; document.querySelector('.tab[data-tab="qr"]').click(); setTimeout(generateQR,50); }
-      })
-    );
-  }
-  clearHistory.addEventListener('click', () => { S.history = []; renderHistory(); });
+  function renderPreview() {
+    paperEmpty.style.display = 'none';
+    paperSheet.style.display = 'flex';
+    paperSheet.innerHTML = '';
 
-  /* ════════════════════════════════════════════════════
-     DOWNLOAD PNG
-  ════════════════════════════════════════════════════ */
-  downloadPng.addEventListener('click', () => {
-    if (S.type === 'qr') {
-      const c = qrHolder.querySelector('canvas');
-      if (c) dlLink(c.toDataURL('image/png'), 'qrcode.png'); return;
-    }
-    const svg = S.type === 'batch' ? batchOutput.querySelector('svg') : barcodeSvg;
-    if (!svg) return;
-    svgToPng(svg, url => dlLink(url, 'barcode.png'));
-  });
+    let { wMM, hMM, orient, perPage, marginMM } = S.paper;
+    if (orient === 'landscape') [wMM, hMM] = [hMM, wMM];
 
-  function svgToPng(svgEl, cb) {
-    const data = new XMLSerializer().serializeToString(svgEl);
-    const blob = new Blob([data], {type:'image/svg+xml'});
-    const url  = URL.createObjectURL(blob);
-    const img  = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width || 400; canvas.height = img.height || 200;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(img,0,0); URL.revokeObjectURL(url);
-      cb(canvas.toDataURL('image/png'));
-    };
-    img.src = url;
-  }
+    // Scale to fit stage (max ~380 × 320 preview area)
+    const maxW = 360, maxH = 300;
+    const rawW = wMM * PX_PER_MM, rawH = hMM * PX_PER_MM;
+    const scale = Math.min(maxW / rawW, maxH / rawH, 1);
 
-  /* ════════════════════════════════════════════════════
-     DOWNLOAD SVG
-  ════════════════════════════════════════════════════ */
-  downloadSvg.addEventListener('click', () => {
-    if (S.type === 'qr') {
-      const c = qrHolder.querySelector('canvas');
-      if (!c) return;
-      const w = c.width, h = c.height;
-      const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><image href="${c.toDataURL()}" width="${w}" height="${h}"/></svg>`;
-      dlText(s, 'qrcode.svg', 'image/svg+xml'); return;
-    }
-    const svg = S.type === 'batch' ? batchOutput.querySelector('svg') : barcodeSvg;
-    if (!svg) return;
-    dlText(new XMLSerializer().serializeToString(svg), 'barcode.svg', 'image/svg+xml');
-  });
+    const shW = rawW * scale, shH = rawH * scale;
+    const margPx = marginMM * PX_PER_MM * scale;
 
-  function dlText(content, name, type) {
-    const blob = new Blob([content],{type});
-    const url  = URL.createObjectURL(blob);
-    dlLink(url, name); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  function dlLink(url, name) {
-    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
-  }
+    paperSheet.style.cssText = `width:${shW}px;height:${shH}px;background:#fff;box-shadow:0 3px 20px rgba(0,0,0,.22),0 1px 4px rgba(0,0,0,.1);position:relative;display:block;animation:popIn .2s ease;`;
 
-  /* ════════════════════════════════════════════════════
-     LOGO UPLOAD
-  ════════════════════════════════════════════════════ */
-  logoUpload.addEventListener('change', () => {
-    const file = logoUpload.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      S.logoDataUrl = e.target.result;
-      logoPreviewImg.src = S.logoDataUrl;
-      logoPreviewWrap.style.display = 'flex';
-      logoSizeField.style.display   = 'block';
-      updateModalPreview();
-    };
-    reader.readAsDataURL(file);
-  });
-  removeLogo.addEventListener('click', () => {
-    S.logoDataUrl = null; logoUpload.value = '';
-    logoPreviewWrap.style.display = logoSizeField.style.display = 'none';
-    updateModalPreview();
-  });
-
-  /* ════════════════════════════════════════════════════
-     PRINT MODAL — OPEN / CLOSE
-  ════════════════════════════════════════════════════ */
-  printBtn.addEventListener('click', () => {
-    if (previewActions.style.display === 'none') return;
-    syncModalFromState(); buildModalPreview(); printModal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-  });
-  function closeModalFn() {
-    printModal.style.display = 'none'; document.body.style.overflow = '';
-  }
-  closeModal.addEventListener('click', closeModalFn);
-  cancelPrint.addEventListener('click', closeModalFn);
-  printModal.addEventListener('click', e => { if (e.target === printModal) closeModalFn(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && printModal.style.display !== 'none') closeModalFn(); });
-
-  /* ── Sync modal inputs → S.print ─────────────────────── */
-  function syncModalFromState() {
-    stickerW.value     = S.print.w;
-    stickerH.value     = S.print.h;
-    stickerUnit.value  = S.print.unit;
-    marginSize.value   = S.print.margin;
-    borderStyle.value  = S.print.border;
-    showCropMarks.checked = S.print.cropMarks;
-    dpiSelect.value    = S.print.dpi;
-    nameFontSize.value = S.print.nameFontSize;
-    codeFontSize.value = S.print.codeFontSize;
-    stickersPerPage.value = S.print.perPage;
-  }
-
-  function readModal() {
-    S.print.w           = parseFloat(stickerW.value) || 50;
-    S.print.h           = parseFloat(stickerH.value) || 25;
-    S.print.unit        = stickerUnit.value;
-    S.print.margin      = parseFloat(marginSize.value) || 0;
-    S.print.border      = borderStyle.value;
-    S.print.cropMarks   = showCropMarks.checked;
-    S.print.dpi         = parseInt(dpiSelect.value);
-    S.print.nameFontSize = parseInt(nameFontSize.value);
-    S.print.codeFontSize = parseInt(codeFontSize.value);
-    S.print.perPage     = stickersPerPage.value;
-  }
-
-  /* ── Preset size buttons ─────────────────────────────── */
-  presetBtns.forEach(btn => btn.addEventListener('click', () => {
-    presetBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    stickerW.value = btn.dataset.w; stickerH.value = btn.dataset.h;
-    stickerUnit.value = 'mm';
-    readModal(); updateModalPreview();
-  }));
-
-  /* ── Orientation ─────────────────────────────────────── */
-  segBtns.forEach(btn => btn.addEventListener('click', () => {
-    segBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    S.print.orient = btn.dataset.orient;
-    updateModalPreview();
-  }));
-
-  /* ── Printer type ────────────────────────────────────── */
-  printerBtns.forEach(btn => btn.addEventListener('click', () => {
-    printerBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    S.print.printer = btn.dataset.printer;
-    // Auto-set DPI suggestion
-    if (S.print.printer === 'thermal') dpiSelect.value = 203;
-    else if (S.print.printer === 'a4')  dpiSelect.value = 600;
-    else                                 dpiSelect.value = 300;
-    readModal(); updateModalPreview();
-  }));
-
-  /* ── All other inputs → live preview ─────────────────── */
-  [stickerW, stickerH, stickerUnit, marginSize, borderStyle,
-   showCropMarks, dpiSelect, nameFontSize, codeFontSize,
-   stickersPerPage, logoWidth].forEach(el => {
-    el.addEventListener('change', () => { readModal(); updateModalPreview(); });
-    el.addEventListener('input',  () => { readModal(); updateModalPreview(); });
-  });
-
-  /* ════════════════════════════════════════════════════
-     MODAL PREVIEW BUILDER
-  ════════════════════════════════════════════════════ */
-  function buildModalPreview() { readModal(); updateModalPreview(); }
-
-  function updateModalPreview() {
-    const p  = S.print;
-    const MM = 3.7795275591; // 1mm in px at 96dpi (screen)
-
-    // Convert unit
-    let wMM = p.w, hMM = p.h;
-    if (p.unit === 'in') { wMM = p.w * 25.4; hMM = p.h * 25.4; }
-
-    // Orientation swap
-    let shW = wMM, shH = hMM;
-    if (p.orient === 'landscape') { shW = hMM; shH = wMM; }
-
-    // Scale to fit stage (max ~360×280 px)
-    const maxW = 340, maxH = 260;
-    const scaleW = maxW / (shW * MM), scaleH = maxH / (shH * MM);
-    const scale  = Math.min(scaleW, scaleH, 1);
-
-    const shPxW = shW * MM * scale;
-    const shPxH = shH * MM * scale;
-    const margPx = p.margin * MM * scale;
-
-    printPreviewSheet.style.cssText = `
-      width:${shPxW}px; height:${shPxH}px;
-      background:#fff;
-      box-shadow: 0 2px 16px rgba(0,0,0,.2);
-    `;
-
-    // How many stickers to show?
-    let count = parseInt(p.perPage) || 1;
-    if (p.perPage === 'batch') count = S.type === 'batch' ? Math.min(batchOutput.querySelectorAll('.batch-item').length, 24) : 1;
-
-    const cols = count === 1 ? 1 : count <= 4 ? 2 : count <= 10 ? 2 : count <= 20 ? 4 : 4;
+    const count = S.type === 'batch' ? Math.min(batchSVGs.length, Math.max(perPage, 1)) : perPage;
+    const cols = count === 1 ? 1 : count <= 4 ? 2 : count <= 12 ? 3 : 4;
     const rows = Math.ceil(count / cols);
 
-    printPreviewSheet.innerHTML = '';
+    const cellW = (shW - margPx * 2) / cols;
+    const cellH = (shH - margPx * 2) / rows;
 
-    if (count === 1) {
-      // Single sticker centered
-      const cell = buildStickerCell(p, shPxW - margPx*2, shPxH - margPx*2, scale, 0);
-      cell.style.cssText = `position:absolute;top:${margPx}px;left:${margPx}px;width:${shPxW - margPx*2}px;height:${shPxH - margPx*2}px;overflow:hidden;`;
-      if (p.border !== 'none') { cell.style.outline = `1px ${p.border} #aaa`; }
-      if (p.cropMarks) addCropMarks(cell);
-      printPreviewSheet.style.position = 'relative';
-      printPreviewSheet.appendChild(cell);
-    } else {
-      // Grid
-      const grid = document.createElement('div');
-      const cellW = (shPxW - margPx*2) / cols;
-      const cellH = (shPxH - margPx*2) / rows;
-      grid.style.cssText = `display:grid;grid-template-columns:repeat(${cols},${cellW}px);grid-template-rows:repeat(${rows},${cellH}px);margin:${margPx}px;`;
-      for (let i = 0; i < count; i++) {
-        const cell = buildStickerCell(p, cellW, cellH, scale, i);
-        cell.style.cssText = `width:${cellW}px;height:${cellH}px;overflow:hidden;box-sizing:border-box;` + (p.border !== 'none' ? `border:1px ${p.border} #ccc;` : '');
-        if (p.cropMarks) addCropMarks(cell);
-        grid.appendChild(cell);
-      }
-      printPreviewSheet.appendChild(grid);
+    const grid = document.createElement('div');
+    grid.style.cssText = `position:absolute;top:${margPx}px;left:${margPx}px;width:${shW - margPx*2}px;height:${shH - margPx*2}px;display:grid;grid-template-columns:repeat(${cols},${cellW}px);grid-template-rows:repeat(${rows},${cellH}px);`;
+
+    for (let i = 0; i < count; i++) {
+      const cell = buildPreviewCell(cellW, cellH, scale, i);
+      grid.appendChild(cell);
     }
-
-    // Note
-    const unitLabel = p.unit === 'in' ? '"' : 'mm';
-    previewNote.textContent = `${p.w}×${p.h}${unitLabel} · ${p.orient.charAt(0).toUpperCase()+p.orient.slice(1)} · ${p.printer.charAt(0).toUpperCase()+p.printer.slice(1)} · ${count} sticker(s)`;
+    paperSheet.appendChild(grid);
   }
 
-  function buildStickerCell(p, cellW, cellH, scale, idx) {
+  function buildPreviewCell(cellW, cellH, scale, idx) {
     const cell = document.createElement('div');
-    cell.className = 'preview-sticker-cell';
-    cell.style.cssText = `display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#fff;width:100%;height:100%;`;
+    cell.className = 'sticker-cell';
+    cell.style.cssText = `width:${cellW}px;height:${cellH}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;padding:${Math.max(2, 4*scale)}px;box-sizing:border-box;`;
 
     // Logo
-    if (S.logoDataUrl) {
+    if (S.logoUrl) {
       const img = document.createElement('img');
-      const lw = Math.min((logoWidth.value || 20) * 3.78 * scale, cellW * 0.5);
-      img.src = S.logoDataUrl;
-      img.style.cssText = `max-width:${lw}px;height:auto;display:block;margin-bottom:1px;`;
+      img.src = S.logoUrl; img.className = 'sc-logo';
+      img.style.cssText = `max-width:${Math.min(30*scale, cellW*0.5)}px;max-height:${cellH*0.25}px;height:auto;`;
       cell.appendChild(img);
     }
 
-    // Name
-    const nameText = labelName.value.trim();
-    if (nameText && S.type === 'barcode') {
-      const nameEl = document.createElement('p');
-      nameEl.className = 'ps-name';
-      nameEl.textContent = nameText;
-      nameEl.style.fontSize = (p.nameFontSize * scale * 0.75) + 'px';
-      nameEl.style.fontWeight = '700';
-      nameEl.style.fontFamily = 'Arial,sans-serif';
-      nameEl.style.color = '#000';
-      nameEl.style.textAlign = 'center';
-      cell.appendChild(nameEl);
+    // Name (barcode only)
+    const nameText = (S.type === 'barcode') ? labelName.value.trim() : '';
+    if (nameText) {
+      const el = document.createElement('p'); el.className = 'sc-name';
+      el.textContent = nameText;
+      el.style.fontSize = Math.max(7, 10*scale) + 'px';
+      cell.appendChild(el);
     }
 
-    // Barcode / QR
-    if (S.type === 'barcode') {
-      const svgEl = barcodeSvg.cloneNode(true);
-      const svgW = Math.min(cellW * 0.9, 200);
-      svgEl.style.cssText = `width:${svgW}px;height:auto;display:block;`;
-      cell.appendChild(svgEl);
-    } else if (S.type === 'qr') {
-      const canvas = qrHolder.querySelector('canvas');
-      if (canvas) {
-        const img = document.createElement('img');
-        img.src = canvas.toDataURL();
-        const sz = Math.min(cellW * 0.75, cellH * 0.75);
-        img.style.cssText = `width:${sz}px;height:${sz}px;`;
-        cell.appendChild(img);
-      }
-    } else if (S.type === 'batch') {
-      // Show one of the batch items
-      const items = batchOutput.querySelectorAll('.batch-item svg');
-      if (items[idx]) {
-        const svgEl = items[idx].cloneNode(true);
-        svgEl.style.cssText = `width:${cellW*0.85}px;height:auto;display:block;`;
-        cell.appendChild(svgEl);
-      }
-    }
-
-    // Code
-    const codeEl = document.createElement('p');
-    codeEl.className = 'ps-code';
-    codeEl.textContent = S.type === 'barcode' ? barcodeInput.value.trim() : S.type === 'qr' ? (qrInput.value.trim().slice(0,30)) : '';
-    codeEl.style.cssText = `font-family:'Courier New',monospace;font-size:${p.codeFontSize * scale * 0.75}px;color:#333;letter-spacing:1px;text-align:center;`;
-    cell.appendChild(codeEl);
-
-    // Meta
-    if (S.type === 'barcode') {
-      const metaTexts = [labelPrice.value.trim(), labelDate.value, labelNote.value.trim()].filter(Boolean);
-      if (metaTexts.length) {
-        const metaEl = document.createElement('div');
-        metaEl.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;justify-content:center;';
-        metaTexts.forEach(t => {
-          const s = document.createElement('span');
-          s.textContent = t;
-          s.style.cssText = `font-family:'Courier New',monospace;font-size:${p.codeFontSize * scale * 0.65}px;color:#555;background:#f4f4f0;padding:1px 4px;border-radius:2px;`;
-          metaEl.appendChild(s);
-        });
-        cell.appendChild(metaEl);
-      }
-    }
-
-    return cell;
-  }
-
-  function addCropMarks(cell) {
-    const marks = ['tl','tr','bl','br'];
-    marks.forEach(pos => {
-      const m = document.createElement('span');
-      m.style.cssText = `position:absolute;width:6px;height:6px;pointer-events:none;`;
-      if (pos === 'tl') { m.style.cssText += 'top:-1px;left:-1px;border-top:1px solid #999;border-left:1px solid #999;'; }
-      if (pos === 'tr') { m.style.cssText += 'top:-1px;right:-1px;border-top:1px solid #999;border-right:1px solid #999;'; }
-      if (pos === 'bl') { m.style.cssText += 'bottom:-1px;left:-1px;border-bottom:1px solid #999;border-left:1px solid #999;'; }
-      if (pos === 'br') { m.style.cssText += 'bottom:-1px;right:-1px;border-bottom:1px solid #999;border-right:1px solid #999;'; }
-      cell.style.position = 'relative';
-      cell.appendChild(m);
-    });
-  }
-
-  /* ════════════════════════════════════════════════════
-     CONFIRM PRINT — build printFrame → window.print()
-  ════════════════════════════════════════════════════ */
-  confirmPrint.addEventListener('click', () => {
-    readModal(); buildPrintFrame(); closeModalFn();
-    setTimeout(() => window.print(), 120);
-  });
-
-  function buildPrintFrame() {
-    const p  = S.print;
-    const MM = 3.7795275591;
-
-    let wMM = p.w, hMM = p.h;
-    if (p.unit === 'in') { wMM = p.w * 25.4; hMM = p.h * 25.4; }
-    if (p.orient === 'landscape') { [wMM, hMM] = [hMM, wMM]; }
-
-    const margMM = p.margin;
-    let count = parseInt(p.perPage) || 1;
-    if (p.perPage === 'batch') count = S.type === 'batch' ? batchOutput.querySelectorAll('.batch-item').length : 1;
-
-    const cols = count === 1 ? 1 : count <= 4 ? 2 : 4;
-    const rows = Math.ceil(count / cols);
-
-    const cellW = (wMM - margMM*2) / cols;
-    const cellH = (hMM - margMM*2) / rows;
-
-    // Inline style: exact mm dimensions for printer
-    const sheetStyle = [
-      `width:${wMM}mm`,
-      `height:${hMM}mm`,
-      `background:#fff`,
-      `display:flex`,
-      `align-items:center`,
-      `justify-content:center`,
-      `position:relative`,
-    ].join(';');
-
-    const gridStyle = [
-      `display:grid`,
-      `grid-template-columns:repeat(${cols},${cellW}mm)`,
-      `grid-template-rows:repeat(${rows},${cellH}mm)`,
-      `margin:${margMM}mm`,
-    ].join(';');
-
-    const cells = [];
-    for (let i = 0; i < count; i++) {
-      cells.push(buildPrintCell(p, cellW, cellH, i));
-    }
-
-    const borderAttr = p.border !== 'none' ? `border:0.3mm ${p.border} #bbb;` : '';
-    const cellWrapper = count === 1
-      ? `<div style="width:${cellW}mm;height:${cellH}mm;overflow:hidden;${borderAttr}">${cells[0]}</div>`
-      : `<div style="${gridStyle}">${cells.map(c => `<div style="overflow:hidden;${borderAttr}">${c}</div>`).join('')}</div>`;
-
-    printFrame.innerHTML = `
-      <div style="${sheetStyle}">
-        ${cellWrapper}
-      </div>
-    `;
-  }
-
-  function buildPrintCell(p, cellWmm, cellHmm, idx) {
-    const fs_name = p.nameFontSize;
-    const fs_code = p.codeFontSize;
-    const lw = logoWidth.value || 20;
-
-    let innerHtml = '';
-
-    // Logo
-    if (S.logoDataUrl) {
-      innerHtml += `<img src="${S.logoDataUrl}" style="max-width:${Math.min(lw, cellWmm*0.5)}mm;height:auto;display:block;margin:0 auto 1mm;"/>`;
-    }
-
-    // Name
-    if (S.type === 'barcode' && labelName.value.trim()) {
-      innerHtml += `<p style="font-family:Arial,sans-serif;font-size:${fs_name}pt;font-weight:bold;color:#000;text-align:center;margin:0 0 1mm;word-break:break-word;">${esc(labelName.value.trim())}</p>`;
-    }
-
-    // Barcode / QR image
-    if (S.type === 'barcode') {
-      const svgData = new XMLSerializer().serializeToString(barcodeSvg);
-      const svgUrl  = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-      innerHtml += `<img src="${svgUrl}" style="max-width:${cellWmm * 0.9}mm;height:auto;display:block;margin:0 auto;"/>`;
-    } else if (S.type === 'qr') {
-      const canvas = qrHolder.querySelector('canvas');
-      if (canvas) {
-        const sz = Math.min(cellWmm * 0.8, cellHmm * 0.7);
-        innerHtml += `<img src="${canvas.toDataURL()}" style="width:${sz}mm;height:${sz}mm;display:block;margin:0 auto;"/>`;
-      }
-    } else if (S.type === 'batch') {
-      const svgEls = batchOutput.querySelectorAll('.batch-item svg');
-      if (svgEls[idx]) {
-        const svgData = new XMLSerializer().serializeToString(svgEls[idx]);
-        const svgUrl  = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-        innerHtml += `<img src="${svgUrl}" style="max-width:${cellWmm*0.88}mm;height:auto;display:block;margin:0 auto;"/>`;
+    // Barcode / QR / Batch
+    if (S.type === 'barcode' && barcodeSvg) {
+      const clone = barcodeSvg.cloneNode(true);
+      clone.style.cssText = `width:${cellW * 0.9}px;height:auto;max-height:${cellH * 0.6}px;`;
+      cell.appendChild(clone);
+    } else if (S.type === 'qr' && qrCanvas) {
+      const img = document.createElement('img');
+      img.src = qrCanvas.toDataURL();
+      const sz = Math.min(cellW * 0.75, cellH * 0.65);
+      img.style.cssText = `width:${sz}px;height:${sz}px;display:block;`;
+      cell.appendChild(img);
+    } else if (S.type === 'batch' && batchSVGs[idx]) {
+      const item = batchSVGs[idx];
+      if (item.ok) {
+        const clone = item.svg.cloneNode(true);
+        clone.style.cssText = `width:${cellW * 0.88}px;height:auto;max-height:${cellH * 0.65}px;`;
+        cell.appendChild(clone);
+      } else {
+        const err = document.createElement('div');
+        err.style.cssText = 'font-family:monospace;font-size:9px;color:#c0392b;text-align:center;';
+        err.textContent = '✕ ' + item.code; cell.appendChild(err);
       }
     }
 
     // Code text
-    const codeText = S.type === 'barcode' ? barcodeInput.value.trim()
-                   : S.type === 'qr'      ? qrInput.value.trim().slice(0,40)
-                   : (batchOutput.querySelectorAll('.batch-item-code')[idx]?.textContent || '');
+    let codeText = '';
+    if (S.type === 'barcode') codeText = barcodeInput.value.trim();
+    else if (S.type === 'qr')  codeText = qrInput.value.trim().slice(0, 32);
+    else if (S.type === 'batch' && batchSVGs[idx]) codeText = batchSVGs[idx].code;
+
     if (codeText) {
-      innerHtml += `<p style="font-family:'Courier New',monospace;font-size:${fs_code}pt;color:#000;text-align:center;letter-spacing:1pt;margin:0.5mm 0 0;">${esc(codeText)}</p>`;
+      const el = document.createElement('p'); el.className = 'sc-code';
+      el.textContent = codeText; el.style.fontSize = Math.max(6, 8*scale) + 'px';
+      cell.appendChild(el);
+    }
+
+    // Meta tags (barcode only)
+    if (S.type === 'barcode') {
+      const metas = [labelPrice.value.trim(), labelDate.value, labelNote.value.trim()].filter(Boolean);
+      if (metas.length) {
+        const metaEl = document.createElement('div'); metaEl.className = 'sc-meta';
+        metas.forEach(m => { const s = document.createElement('span'); s.textContent = m; s.style.fontSize = Math.max(5,7*scale)+'px'; metaEl.appendChild(s); });
+        cell.appendChild(metaEl);
+      }
+    }
+    return cell;
+  }
+
+  function showActionBar() {
+    previewBtns.style.display = 'flex';
+    pdfInfoStrip.style.display = 'flex';
+  }
+  function updatePdfInfo(label) {
+    let { wMM, hMM, orient } = S.paper;
+    if (orient === 'landscape') [wMM, hMM] = [hMM, wMM];
+    pdfInfoText.textContent = `PDF ready — "${label}"  ·  ${Math.round(wMM)}×${Math.round(hMM)} mm`;
+  }
+
+  /* ══════════════════════════════════════════════════
+     DOWNLOAD — PNG
+  ══════════════════════════════════════════════════ */
+  downloadPng.addEventListener('click', () => {
+    if (!S.ready) return;
+    if (S.type === 'qr' && qrCanvas) {
+      dlLink(qrCanvas.toDataURL('image/png'), 'qrcode.png'); return;
+    }
+    const svg = S.type === 'barcode' ? barcodeSvg : (batchSVGs[0]?.svg || null);
+    if (svg) svgToPng(svg, url => dlLink(url, 'barcode.png'));
+  });
+
+  /* ══════════════════════════════════════════════════
+     DOWNLOAD — SVG
+  ══════════════════════════════════════════════════ */
+  downloadSvgBtn.addEventListener('click', () => {
+    if (!S.ready) return;
+    if (S.type === 'qr' && qrCanvas) {
+      const s = `<svg xmlns="http://www.w3.org/2000/svg" width="${qrCanvas.width}" height="${qrCanvas.height}"><image href="${qrCanvas.toDataURL()}" width="${qrCanvas.width}" height="${qrCanvas.height}"/></svg>`;
+      dlText(s, 'qrcode.svg', 'image/svg+xml'); return;
+    }
+    const svg = S.type === 'barcode' ? barcodeSvg : (batchSVGs[0]?.svg || null);
+    if (svg) dlText(new XMLSerializer().serializeToString(svg), 'barcode.svg', 'image/svg+xml');
+  });
+
+  /* ══════════════════════════════════════════════════
+     DOWNLOAD — PDF  ★ Main Feature ★
+  ══════════════════════════════════════════════════ */
+  downloadPdfBtn.addEventListener('click', generatePDF);
+
+  async function generatePDF() {
+    if (!S.ready || !window.jspdf) { showToast('jsPDF not loaded yet, please wait…', false); return; }
+
+    showToast('Generating PDF…', true);
+
+    try {
+      const { jsPDF } = window.jspdf;
+
+      let { wMM, hMM, orient, perPage, marginMM } = S.paper;
+      if (orient === 'landscape') [wMM, hMM] = [hMM, wMM];
+
+      // Determine count
+      let totalItems = 1;
+      if (S.type === 'batch') totalItems = batchSVGs.length;
+      else totalItems = Math.max(1, perPage);
+
+      const count = S.type === 'batch' ? totalItems : perPage;
+      const cols  = count === 1 ? 1 : count <= 4 ? 2 : count <= 12 ? 3 : 4;
+      const rows  = Math.ceil(count / cols);
+
+      const cellW = (wMM - marginMM * 2) / cols;
+      const cellH = (hMM - marginMM * 2) / rows;
+
+      const pdf = new jsPDF({
+        orientation: orient === 'landscape' ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: [wMM, hMM],
+      });
+
+      // Render each cell to PDF
+      for (let i = 0; i < count; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const xBase = marginMM + col * cellW;
+        const yBase = marginMM + row * cellH;
+
+        await renderCellToPDF(pdf, xBase, yBase, cellW, cellH, i);
+      }
+
+      // File name
+      const now = new Date();
+      const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+      const fname = `barcode_${stamp}_${Math.round(wMM)}x${Math.round(hMM)}mm.pdf`;
+
+      pdf.save(fname);
+      showToast('PDF downloaded! ✓', false);
+
+    } catch (e) {
+      console.error(e);
+      showToast('PDF error: ' + e.message, false);
+    }
+  }
+
+  async function renderCellToPDF(pdf, x, y, cellW, cellH, idx) {
+    const logoPad = 1;
+    let curY = y + 2;
+
+    // Logo
+    if (S.logoUrl) {
+      const lw = Math.min(20, cellW * 0.5);
+      const lh = lw * 0.5; // rough estimate
+      try {
+        const ext = S.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+        pdf.addImage(S.logoUrl, ext, x + (cellW - lw)/2, curY, lw, lh);
+        curY += lh + logoPad;
+      } catch(_){}
+    }
+
+    // Product name
+    if (S.type === 'barcode' && labelName.value.trim()) {
+      pdf.setFont('helvetica','bold');
+      pdf.setFontSize(9); pdf.setTextColor(0,0,0);
+      pdf.text(labelName.value.trim(), x + cellW/2, curY + 3, { align:'center', maxWidth: cellW - 2 });
+      curY += 5;
+    }
+
+    // Barcode / QR image
+    let imgData = null, imgW = 0, imgH = 0;
+
+    if (S.type === 'barcode' && barcodeSvg) {
+      await new Promise(resolve => {
+        svgToPng(barcodeSvg, url => { imgData = url; resolve(); });
+      });
+      imgW = Math.min(cellW * 0.9, cellW - 2);
+      imgH = imgW * 0.4;
+    } else if (S.type === 'qr' && qrCanvas) {
+      imgData = qrCanvas.toDataURL('image/png');
+      const sz = Math.min(cellW * 0.8, cellH * 0.65);
+      imgW = sz; imgH = sz;
+    } else if (S.type === 'batch' && batchSVGs[idx]?.ok) {
+      await new Promise(resolve => {
+        svgToPng(batchSVGs[idx].svg, url => { imgData = url; resolve(); });
+      });
+      imgW = Math.min(cellW * 0.88, cellW - 2);
+      imgH = imgW * 0.4;
+    }
+
+    if (imgData) {
+      pdf.addImage(imgData, 'PNG', x + (cellW - imgW)/2, curY, imgW, imgH);
+      curY += imgH + 1;
+    }
+
+    // Code number
+    let codeText = '';
+    if (S.type === 'barcode') codeText = barcodeInput.value.trim();
+    else if (S.type === 'qr') codeText = qrInput.value.trim().slice(0, 40);
+    else if (S.type === 'batch' && batchSVGs[idx]) codeText = batchSVGs[idx].code;
+
+    if (codeText) {
+      pdf.setFont('courier','normal');
+      pdf.setFontSize(7); pdf.setTextColor(50,50,50);
+      pdf.text(codeText, x + cellW/2, curY + 2.5, { align:'center', maxWidth: cellW - 2 });
+      curY += 4;
     }
 
     // Meta
     if (S.type === 'barcode') {
       const metas = [labelPrice.value.trim(), labelDate.value, labelNote.value.trim()].filter(Boolean);
       if (metas.length) {
-        innerHtml += `<p style="font-family:'Courier New',monospace;font-size:${fs_code-1}pt;color:#333;text-align:center;margin:0.5mm 0 0;">${metas.map(esc).join('  ·  ')}</p>`;
+        pdf.setFont('courier','normal');
+        pdf.setFontSize(6); pdf.setTextColor(80,80,80);
+        pdf.text(metas.join('  ·  '), x + cellW/2, curY + 2, { align:'center', maxWidth: cellW - 2 });
       }
     }
-
-    // Crop marks (inline absolute)
-    const crops = p.cropMarks ? `
-      <span style="position:absolute;top:-0.5mm;left:-0.5mm;width:2mm;height:2mm;border-top:0.2mm solid #888;border-left:0.2mm solid #888;"></span>
-      <span style="position:absolute;top:-0.5mm;right:-0.5mm;width:2mm;height:2mm;border-top:0.2mm solid #888;border-right:0.2mm solid #888;"></span>
-      <span style="position:absolute;bottom:-0.5mm;left:-0.5mm;width:2mm;height:2mm;border-bottom:0.2mm solid #888;border-left:0.2mm solid #888;"></span>
-      <span style="position:absolute;bottom:-0.5mm;right:-0.5mm;width:2mm;height:2mm;border-bottom:0.2mm solid #888;border-right:0.2mm solid #888;"></span>` : '';
-
-    const bgColor = p.printer === 'thermal' ? '#ffffff' : '#ffffff';
-
-    return `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bgColor};padding:1mm;position:relative;box-sizing:border-box;">${crops}${innerHtml}</div>`;
   }
 
-  /* ════════════════════════════════════════════════════
-     KEYBOARD SHORTCUTS
-  ════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════
+     LOGO
+  ══════════════════════════════════════════════════ */
+  logoUpload.addEventListener('change', () => {
+    const f = logoUpload.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = e => {
+      S.logoUrl = e.target.result;
+      logoImg.src = S.logoUrl;
+      logoRow.style.display = 'flex';
+      if (S.ready) renderPreview();
+    };
+    r.readAsDataURL(f);
+  });
+  removeLogo.addEventListener('click', () => {
+    S.logoUrl = null; logoUpload.value = '';
+    logoRow.style.display = 'none';
+    if (S.ready) renderPreview();
+  });
+
+  /* ══════════════════════════════════════════════════
+     HISTORY
+  ══════════════════════════════════════════════════ */
+  function addHistory(code, type) {
+    S.history.unshift({code, type});
+    if (S.history.length > 30) S.history.pop();
+    renderHistory();
+  }
+  function renderHistory() {
+    if (!S.history.length) { historyList.innerHTML = '<p class="history-empty">Generated codes will appear here</p>'; return; }
+    historyList.innerHTML = S.history.map((it, i) => `
+      <div class="history-item" data-i="${i}">
+        <span class="history-dot dot-${it.type}"></span>
+        <span class="history-code">${esc(it.code)}</span>
+        <span class="history-type">${it.type.toUpperCase()}</span>
+      </div>`).join('');
+    historyList.querySelectorAll('.history-item').forEach(el =>
+      el.addEventListener('click', () => {
+        const it = S.history[+el.dataset.i];
+        if (it.type === 'barcode') { barcodeInput.value = it.code; document.querySelector('.tab[data-tab="barcode"]').click(); setTimeout(generateBarcode, 50); }
+        else if (it.type === 'qr') { qrInput.value = it.code; document.querySelector('.tab[data-tab="qr"]').click(); setTimeout(generateQR, 50); }
+      })
+    );
+  }
+  clearHistory.addEventListener('click', () => { S.history = []; renderHistory(); });
+
+  /* ══════════════════════════════════════════════════
+     TOAST
+  ══════════════════════════════════════════════════ */
+  let toastTimer = null;
+  function showToast(msg, spinner) {
+    toastMsg.textContent = msg;
+    pdfToast.querySelector('.toast-spinner').style.display = spinner ? 'block' : 'none';
+    pdfToast.style.display = 'flex';
+    clearTimeout(toastTimer);
+    if (!spinner) toastTimer = setTimeout(() => { pdfToast.style.display = 'none'; }, 2800);
+  }
+
+  /* ══════════════════════════════════════════════════
+     HELPERS
+  ══════════════════════════════════════════════════ */
+  function svgToPng(svgEl, cb) {
+    const data = new XMLSerializer().serializeToString(svgEl);
+    const blob = new Blob([data], {type:'image/svg+xml'});
+    const url  = URL.createObjectURL(blob);
+    const img  = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width || 400; c.height = img.height || 200;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
+      ctx.drawImage(img,0,0); URL.revokeObjectURL(url);
+      cb(c.toDataURL('image/png'));
+    };
+    img.src = url;
+  }
+  function dlLink(url, name) { const a = document.createElement('a'); a.href=url; a.download=name; a.click(); }
+  function dlText(content, name, type) {
+    const url = URL.createObjectURL(new Blob([content],{type}));
+    dlLink(url, name); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function shake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); el.addEventListener('animationend', () => el.classList.remove('shake'), {once:true}); }
+  function showErr(msg) { showToast('✕ ' + msg, false); }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  /* ══════════════════════════════════════════════════
+     KEY BINDINGS
+  ══════════════════════════════════════════════════ */
   barcodeInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateBarcode(); });
   qrInput.addEventListener('keydown', e => { if (e.key === 'Enter' && e.ctrlKey) generateQR(); });
-
-  /* ════════════════════════════════════════════════════
-     EVENT BINDINGS
-  ════════════════════════════════════════════════════ */
   generateBtn.addEventListener('click', generateBarcode);
   generateQrBtn.addEventListener('click', generateQR);
   generateBatchBtn.addEventListener('click', generateBatch);
-  downloadPng.addEventListener('click', () => {});  // already bound above
-  // (downloadPng / downloadSvg are bound in their own blocks)
 
-  /* ════════════════════════════════════════════════════
-     HELPERS
-  ════════════════════════════════════════════════════ */
-  function shake(el) {
-    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
-    el.addEventListener('animationend', () => el.classList.remove('shake'), {once:true});
-  }
-  function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  /* ════════════════════════════════════════════════════
+  /* ══════════════════════════════════════════════════
      INIT
-  ════════════════════════════════════════════════════ */
-  initTheme();
+  ══════════════════════════════════════════════════ */
   renderHistory();
 
 })();
