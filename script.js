@@ -364,64 +364,101 @@
   }
 
   async function addCellToPDF(pdf, x, y, cw, ch, idx) {
-    let curY = y + 2;
-    const cx = x + cw / 2;
+    const cx   = x + cw / 2;   // horizontal center of cell
+    const pad  = 2;             // mm padding inside cell
+
+    // ── Step 1: measure all content heights first ──────────────
+    const hasLogo  = !!(S.logoUrl && S.type === 'barcode');
+    const hasName  = !!(S.type === 'barcode' && labelName.value.trim());
+    const meta     = S.type === 'barcode'
+      ? [labelPrice.value.trim(), labelDate.value, labelNote.value.trim()].filter(Boolean)
+      : [];
+    const hasMeta  = meta.length > 0;
+
+    // logo
+    const logoW = hasLogo ? Math.min(16, cw * 0.4) : 0;
+    const logoH = hasLogo ? logoW * 0.5 : 0;
+    const logoGap = hasLogo ? 1.5 : 0;
+
+    // product name
+    const nameH  = hasName ? 4.5 : 0;
+    const nameGap = hasName ? 1 : 0;
+
+    // barcode / QR image
+    let imgData = null, iw = 0, ih = 0;
+    if (S.type === 'barcode' && S.bcSvgEl) {
+      imgData = await svgToDataUrl(S.bcSvgEl);
+      iw = Math.min(cw * 0.92, cw - pad * 2);
+      ih = iw * 0.42;
+    } else if (S.type === 'qr' && S.qrCanvas) {
+      imgData = S.qrCanvas.toDataURL('image/png');
+      const sz = Math.min(cw * 0.8, ch * 0.72);
+      iw = sz; ih = sz;
+    } else if (S.type === 'batch' && S.batchItems[idx]?.ok) {
+      imgData = await svgToDataUrl(S.batchItems[idx].svgEl);
+      iw = Math.min(cw * 0.92, cw - pad * 2);
+      ih = iw * 0.42;
+    }
+    const imgGap = imgData ? 1.5 : 0;
+
+    // code text
+    let code = '';
+    if (S.type === 'barcode')   code = barcodeInput.value.trim();
+    else if (S.type === 'qr')   code = qrInput.value.trim().slice(0, 42);
+    else if (S.batchItems[idx]) code = S.batchItems[idx].code;
+    const codeH  = code ? 3.5 : 0;
+    const codeGap = code ? 1 : 0;
+
+    // meta
+    const metaH  = hasMeta ? 3 : 0;
+
+    // ── Step 2: total content height ──────────────────────────
+    const totalH = logoH + logoGap
+                 + nameH + nameGap
+                 + ih    + imgGap
+                 + codeH + codeGap
+                 + metaH;
+
+    // ── Step 3: start Y so content is vertically centred ──────
+    let curY = y + (ch - totalH) / 2;
+    // clamp so we never go above the cell top
+    if (curY < y + pad) curY = y + pad;
+
+    // ── Step 4: draw each element ──────────────────────────────
 
     // Logo
-    if (S.logoUrl && S.type === 'barcode') {
-      const lw = Math.min(18, cw * 0.45);
+    if (hasLogo) {
       try {
         const ext = S.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-        pdf.addImage(S.logoUrl, ext, cx - lw/2, curY, lw, lw * 0.5);
-        curY += lw * 0.5 + 1;
+        pdf.addImage(S.logoUrl, ext, cx - logoW/2, curY, logoW, logoH);
+        curY += logoH + logoGap;
       } catch(_) {}
     }
 
     // Product name
-    if (S.type === 'barcode' && labelName.value.trim()) {
+    if (hasName) {
       pdf.setFont('helvetica','bold').setFontSize(8).setTextColor(0,0,0);
-      pdf.text(labelName.value.trim(), cx, curY + 3, { align:'center', maxWidth: cw - 2 });
-      curY += 5;
+      pdf.text(labelName.value.trim(), cx, curY + 3.2, { align:'center', maxWidth: cw - pad*2 });
+      curY += nameH + nameGap;
     }
 
-    // Image (barcode SVG → PNG, QR canvas, batch SVG)
-    let imgData = null, iw = 0, ih = 0;
-
-    if (S.type === 'barcode' && S.bcSvgEl) {
-      imgData = await svgToDataUrl(S.bcSvgEl);
-      iw = Math.min(cw * 0.92, cw - 2); ih = iw * 0.42;
-    } else if (S.type === 'qr' && S.qrCanvas) {
-      imgData = S.qrCanvas.toDataURL('image/png');
-      const sz = Math.min(cw * 0.78, ch * 0.65); iw = sz; ih = sz;
-    } else if (S.type === 'batch' && S.batchItems[idx]?.ok) {
-      imgData = await svgToDataUrl(S.batchItems[idx].svgEl);
-      iw = Math.min(cw * 0.9, cw - 2); ih = iw * 0.42;
-    }
-
+    // Barcode / QR image — CENTRED
     if (imgData) {
       pdf.addImage(imgData, 'PNG', cx - iw/2, curY, iw, ih);
-      curY += ih + 1;
+      curY += ih + imgGap;
     }
 
-    // Code text
-    let code = '';
-    if (S.type === 'barcode')     code = barcodeInput.value.trim();
-    else if (S.type === 'qr')     code = qrInput.value.trim().slice(0, 42);
-    else if (S.batchItems[idx])   code = S.batchItems[idx].code;
-
+    // Code number
     if (code) {
       pdf.setFont('courier','normal').setFontSize(7).setTextColor(40,40,40);
-      pdf.text(code, cx, curY + 2.5, { align:'center', maxWidth: cw - 2 });
-      curY += 4.5;
+      pdf.text(code, cx, curY + 2.5, { align:'center', maxWidth: cw - pad*2 });
+      curY += codeH + codeGap;
     }
 
-    // Meta (barcode only)
-    if (S.type === 'barcode') {
-      const meta = [labelPrice.value.trim(), labelDate.value, labelNote.value.trim()].filter(Boolean);
-      if (meta.length) {
-        pdf.setFont('courier','normal').setFontSize(6).setTextColor(90,90,90);
-        pdf.text(meta.join('  ·  '), cx, curY + 1.5, { align:'center', maxWidth: cw - 2 });
-      }
+    // Meta tags
+    if (hasMeta) {
+      pdf.setFont('courier','normal').setFontSize(6).setTextColor(90,90,90);
+      pdf.text(meta.join('  ·  '), cx, curY + 2, { align:'center', maxWidth: cw - pad*2 });
     }
   }
 
