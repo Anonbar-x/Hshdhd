@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BarForge — Professional Barcode Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-brand">
+    <div class="logo-mark">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect x="0" y="4" width="4" height="20" rx="1" fill="currentColor"/>
+        <rect x="6" y="0" width="3" height="28" rx="1" fill="currentColor"/>
+        <rect x="11" y="6" width="4" height="16" rx="1" fill="currentColor"/>
+        <rect x="17" y="2" width="2" height="24" rx="1" fill="currentColor"/>
+        <rect x="21" y="4" width="3" height="20" rx="1" fill="currentColor" opacity="0.6"/>
+        <rect x="26" y="0" width="2" height="28" rx="1" fill="currentColor"/>
+      </svg>
+    </div>
+    <span class="brand-name">BarForge</span>
+    <span class="brand-tag">PRO</span>
+  </div>
+  <nav class="header-nav">
+    <button class="nav-tab active" data-tab="single">Single</button>
+    <button class="nav-tab" data-tab="bulk">Bulk</button>
+    <button class="nav-tab" data-tab="designer">Designer</button>
+  </nav>
+  <div class="header-actions">
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+      <span class="theme-icon">☀</span>
+    </button>
+  </div>
+</header>
+
+<!-- Main App -->
+<main class="app-layout">
+
+  <!-- ═══════════════════════ SINGLE TAB ═══════════════════════ -->
+  <section class="tab-panel active" id="tab-single">
+    <div class="workspace">
+
+      <!-- Settings Panel -->
+      <aside class="settings-panel">
+        <div class="panel-section">
+          <h3 class="section-title">Barcode Type</h3>
+          <div class="format-grid" id="formatGrid">
+            <button class="format-btn active" data-format="CODE128">CODE128</button>
+            <button class="format-btn" data-format="CODE39">CODE39</button>
+            <button class="format-btn" data-format="EAN13">EAN13</button>
+            <button class="format-btn" data-format="UPC">UPC</button>
+            <button class="format-btn" data-format="ITF14">ITF14</button>
+            <button class="format-btn" data-format="MSI">MSI</button>
+            <button class="format-btn" data-format="pharmacode">Pharma</button>
+            <button class="format-btn" data-format="QR">QR Code</button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="section-title">Content</h3>
+          <div class="field">
+            <label>Barcode Value</label>
+            <div class="input-wrap">
+              <input type="text" id="barcodeValue" value="1234567890128" placeholder="Enter barcode value..." />
+              <button class="input-btn" id="randomBtn" title="Generate random">↻</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="section-title">Dimensions</h3>
+          <div class="field-row">
+            <div class="field">
+              <label>Width <span class="val-badge" id="widthVal">2</span></label>
+              <input type="range" id="barcodeWidth" min="1" max="5" step="0.5" value="2" />
+            </div>
+            <div class="field">
+              <label>Height <span class="val-badge" id="heightVal">100</span></label>
+              <input type="range" id="barcodeHeight" min="20" max="250" step="5" value="100" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Margin <span class="val-badge" id="marginVal">10</span></label>
+              <input type="range" id="barcodeMargin" min="0" max="40" step="2" value="10" />
+            </div>
+            <div class="field">
+              <label>Font Size <span class="val-badge" id="fontSizeVal">14</span></label>
+              <input type="range" id="barcodeFontSize" min="8" max="32" step="1" value="14" />
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="section-title">Appearance</h3>
+          <div class="field-row">
+            <div class="field">
+              <label>Bar Color</label>
+              <input type="color" id="lineColor" value="#000000" class="color-input" />
+            </div>
+            <div class="field">
+              <label>Background</label>
+              <input type="color" id="bgColor" value="#ffffff" class="color-input" />
+            </div>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle-label">
+              <span>Show Text</span>
+              <div class="toggle">
+                <input type="checkbox" id="showText" checked />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="section-title">Label Size</h3>
+          <div class="label-size-grid" id="labelSizeGrid">
+            <button class="size-btn active" data-w="120" data-h="90">40×30mm</button>
+            <button class="size-btn" data-w="150" data-h="75">50×25mm</button>
+            <button class="size-btn" data-w="210" data-h="120">70×40mm</button>
+            <button class="size-btn" data-w="0" data-h="0">Custom</button>
+          </div>
+          <div class="custom-size" id="customSizeInputs" style="display:none">
+            <div class="field-row">
+              <div class="field"><label>Width (px)</label><input type="number" id="customW" value="200" min="50" max="800" /></div>
+              <div class="field"><label>Height (px)</label><input type="number" id="customH" value="120" min="30" max="600" /></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Preview Panel -->
+      <div class="preview-panel">
+        <div class="preview-header">
+          <span class="preview-title">Live Preview</span>
+          <div class="preview-meta" id="previewMeta">CODE128 · 1234567890128</div>
+        </div>
+
+        <div class="preview-stage" id="previewStage">
+          <div class="preview-label-frame" id="labelFrame">
+            <svg id="barcodeOutput"></svg>
+            <div id="qrOutput" style="display:none"></div>
+          </div>
+        </div>
+
+        <div class="preview-footer">
+          <div class="export-bar">
+            <button class="export-btn primary" id="dlPNG">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PNG
+            </button>
+            <button class="export-btn" id="dlSVG">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              SVG
+            </button>
+            <button class="export-btn" id="dlPDF">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              PDF
+            </button>
+            <button class="export-btn" id="printBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Print
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ BULK TAB ═══════════════════════ -->
+  <section class="tab-panel" id="tab-bulk">
+    <div class="bulk-workspace">
+      <div class="bulk-controls">
+        <h2 class="bulk-title">Bulk Barcode Generator</h2>
+        <p class="bulk-desc">Upload a CSV file or paste values to generate multiple barcodes at once.</p>
+
+        <div class="bulk-actions">
+          <div class="drop-zone" id="dropZone">
+            <div class="drop-icon">📂</div>
+            <p>Drop CSV file here or <label class="file-label" for="csvFile">browse</label></p>
+            <p class="drop-hint">CSV format: value, label (one per row)</p>
+            <input type="file" id="csvFile" accept=".csv,.txt" hidden />
+          </div>
+
+          <div class="bulk-divider"><span>or</span></div>
+
+          <div class="field">
+            <label>Paste Values (one per line)</label>
+            <textarea id="bulkText" placeholder="1234567890128&#10;9876543210987&#10;5555555555555" rows="6"></textarea>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label>Format</label>
+              <select id="bulkFormat">
+                <option value="CODE128">CODE128</option>
+                <option value="CODE39">CODE39</option>
+                <option value="EAN13">EAN13</option>
+                <option value="UPC">UPC</option>
+                <option value="ITF14">ITF14</option>
+                <option value="MSI">MSI</option>
+                <option value="QR">QR Code</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Per Row</label>
+              <select id="bulkPerRow">
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="6">6</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="generateBulkBtn">Generate Barcodes</button>
+        </div>
+      </div>
+
+      <div class="bulk-preview-area">
+        <div class="bulk-preview-header" id="bulkPreviewHeader" style="display:none">
+          <span id="bulkCount">0 barcodes generated</span>
+          <div class="bulk-export-btns">
+            <button class="export-btn" id="bulkDlPNG">Download All PNG</button>
+            <button class="export-btn primary" id="bulkDlPDF">Export PDF</button>
+          </div>
+        </div>
+        <div class="bulk-grid" id="bulkGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ DESIGNER TAB ═══════════════════════ -->
+  <section class="tab-panel" id="tab-designer">
+    <div class="workspace">
+      <aside class="settings-panel">
+        <div class="panel-section">
+          <h3 class="section-title">Label Fields</h3>
+          <div class="field">
+            <label>Product Name</label>
+            <input type="text" id="designProductName" value="Fresh Orange Juice" />
+          </div>
+          <div class="field">
+            <label>Price</label>
+            <input type="text" id="designPrice" value="৳ 120.00" />
+          </div>
+          <div class="field">
+            <label>Barcode Value</label>
+            <input type="text" id="designBarcode" value="1234567890128" />
+          </div>
+          <div class="field">
+            <label>Subtitle / SKU</label>
+            <input type="text" id="designSubtitle" value="SKU: OJ-001-1L" />
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="section-title">Label Style</h3>
+          <div class="field">
+            <label>Template</label>
+            <div class="template-grid" id="templateGrid">
+              <button class="template-btn active" data-tpl="retail">Retail</button>
+              <button class="template-btn" data-tpl="minimal">Minimal</button>
+              <button class="template-btn" data-tpl="bold">Bold</button>
+              <button class="template-btn" data-tpl="pharmacy">Pharmacy</button>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Label BG</label>
+              <input type="color" id="designBg" value="#ffffff" class="color-input" />
+            </div>
+            <div class="field">
+              <label>Text Color</label>
+              <input type="color" id="designText" value="#111111" class="color-input" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Accent</label>
+              <input type="color" id="designAccent" value="#e63946" class="color-input" />
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3 class="section-title">Barcode Format</h3>
+          <select id="designFormat">
+            <option value="CODE128">CODE128</option>
+            <option value="EAN13">EAN13</option>
+            <option value="UPC">UPC</option>
+            <option value="QR">QR Code</option>
+          </select>
+        </div>
+      </aside>
+
+      <div class="preview-panel">
+        <div class="preview-header">
+          <span class="preview-title">Label Designer</span>
+          <div class="preview-meta">Live label preview</div>
+        </div>
+        <div class="preview-stage">
+          <div class="designer-canvas" id="designerCanvas"></div>
+        </div>
+        <div class="preview-footer">
+          <div class="export-bar">
+            <button class="export-btn primary" id="designDlPNG">Download PNG</button>
+            <button class="export-btn" id="designDlPDF">Export PDF</button>
+            <button class="export-btn" id="designPrint">Print</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Scripts -->
+<script src="js/jsbarcode.min.js"></script>
+<script src="js/qrcode.min.js"></script>
+<script src="js/jspdf.umd.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
