@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════
-   Barcode Generator — script.js  v3 FINAL
-   Fixes: PDF centering, history persistence,
-          barcode fills cell correctly
+   Barcode Generator — script.js  v4
+   Zebra ZD230t optimised
+   Default: 101.6 × 50.8 mm (4" × 2")
    ══════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -62,6 +62,14 @@
   const toastMsg         = $('toastMsg');
   const toastSpin        = $('toastSpin');
 
+  /* ══ ZEBRA ZD230t DEFAULT ══════════════════════
+     4 inch × 2 inch = 101.6 × 50.8 mm
+     (most common label for this printer)
+  ════════════════════════════════════════════ */
+  pdfW.value = '101.6';
+  pdfH.value = '50.8';
+  pdfUnit.value = 'mm';
+
   /* ══ THEME ══════════════════════════════════ */
   document.documentElement.setAttribute('data-theme',
     localStorage.getItem('bcs-theme') || 'light');
@@ -107,13 +115,13 @@
     try {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       JsBarcode(svg, raw, {
-        format: getFmt(raw, formatSelect),
-        lineColor: '#000000',
-        width: parseFloat(barWidth.value),
-        height: parseInt(barHeight.value),
+        format:       getFmt(raw, formatSelect),
+        lineColor:    '#000000',
+        width:        parseFloat(barWidth.value),
+        height:       parseInt(barHeight.value),
         displayValue: false,
-        margin: 8,
-        background: '#ffffff',
+        margin:       6,
+        background:   '#ffffff',
       });
       S.bcSvgEl = svg; S.qrCanvas = null; S.batchItems = [];
 
@@ -233,13 +241,18 @@
     sizeStrip.style.display  = 'flex';
     S.ready = true;
   }
+
   function showErr(msg) {
     emptyState.style.display = 'flex';
     sticker.style.display = batchGrid.style.display = 'none';
     emptyState.innerHTML = `<div class="err-msg">✕ ${esc(msg)}</div>
-      <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px">Try a different value or format</p>`;
+      <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px">
+        Try a different value or format</p>`;
     setTimeout(() => {
-      emptyState.innerHTML = `<div class="empty-bars"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><p>Your barcode will appear here</p>`;
+      emptyState.innerHTML = `<div class="empty-bars">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span></div>
+        <p>Your barcode will appear here</p>`;
     }, 3000);
   }
 
@@ -266,7 +279,7 @@
     if (!S.ready) return;
     if (S.type === 'qr' && S.qrCanvas) { dlLink(S.qrCanvas.toDataURL('image/png'), 'qrcode.png'); return; }
     const svg = S.type === 'barcode' ? S.bcSvgEl : (S.batchItems[0]?.svgEl || null);
-    if (svg) svgToPNG(svg, 1200, url => dlLink(url, 'barcode.png'));
+    if (svg) svgToCanvas(svg, 2400, 900).then(c => dlLink(c.toDataURL('image/png'), 'barcode.png'));
   });
 
   /* ══ SVG DOWNLOAD ═══════════════════════════ */
@@ -274,79 +287,92 @@
     if (!S.ready) return;
     if (S.type === 'qr' && S.qrCanvas) {
       const d = S.qrCanvas.toDataURL();
-      dlText(`<svg xmlns="http://www.w3.org/2000/svg" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}"><image href="${d}" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}"/></svg>`,
+      dlText(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}">` +
+        `<image href="${d}" width="${S.qrCanvas.width}" height="${S.qrCanvas.height}"/></svg>`,
         'qrcode.svg', 'image/svg+xml'); return;
     }
     const svg = S.type === 'barcode' ? S.bcSvgEl : (S.batchItems[0]?.svgEl || null);
     if (svg) dlText(new XMLSerializer().serializeToString(svg), 'barcode.svg', 'image/svg+xml');
   });
 
-  /* ══════════════════════════════════════════════════════
-     PDF DOWNLOAD  ★  v3
-     Strategy:
-       • Convert SVG → high-res PNG canvas (600px tall)
-       • Measure real pixel ratio AFTER rendering
-       • Scale barcode to fill cell width, preserve ratio
-       • Vertically centre ALL content in cell
-  ══════════════════════════════════════════════════════ */
+  /* ════════════════════════════════════════════════════════
+     PDF DOWNLOAD  ★  ZEBRA ZD230t OPTIMISED
+     • 203 DPI thermal printer
+     • PDF page = exact label size (101.6 × 50.8 mm default)
+     • Barcode fills ~80% of label width, perfectly centred
+     • High-res canvas render (1600 px tall) for crisp output
+  ════════════════════════════════════════════════════════ */
   btnPdf.addEventListener('click', downloadPDF);
 
   async function downloadPDF() {
     if (!S.ready) return;
     if (!window.jspdf) { showToast('PDF library loading…', false); return; }
     showToast('Generating PDF…', true);
+
     try {
       const { jsPDF } = window.jspdf;
 
-      /* paper size → mm */
-      let W = parseFloat(pdfW.value) || 80;
-      let H = parseFloat(pdfH.value) || 50;
+      /* ── Paper / label size ─────────────────── */
+      let W = parseFloat(pdfW.value) || 101.6;
+      let H = parseFloat(pdfH.value) || 50.8;
       const unit = pdfUnit.value;
       if (unit === 'in') { W *= 25.4; H *= 25.4; }
-      else if (unit === 'cm') { W *= 10;  H *= 10;  }
+      else if (unit === 'cm') { W *= 10; H *= 10; }
 
-      /* grid */
+      /* ── Grid ───────────────────────────────── */
       const perPage = parseInt(pdfPerPage.value) || 1;
       const count   = S.type === 'batch' ? S.batchItems.length : perPage;
       const cols    = count === 1 ? 1 : count <= 4 ? 2 : count <= 9 ? 3 : 4;
       const rows    = Math.ceil(count / cols);
-      const MAR     = 2;                        // page margin mm
-      const cellW   = (W - MAR * 2) / cols;
-      const cellH   = (H - MAR * 2) / rows;
+
+      /* Small margin so barcode isn't edge-to-edge */
+      const MAR   = 2.5;  /* mm */
+      const cellW = (W - MAR * 2) / cols;
+      const cellH = (H - MAR * 2) / rows;
 
       const pdf = new jsPDF({
         orientation: W > H ? 'landscape' : 'portrait',
-        unit: 'mm', format: [W, H],
+        unit: 'mm',
+        format: [W, H],
       });
 
       for (let i = 0; i < count; i++) {
-        const col  = i % cols, row = Math.floor(i / cols);
+        const col  = i % cols;
+        const row  = Math.floor(i / cols);
         await drawCell(pdf,
-          MAR + col * cellW, MAR + row * cellH,
+          MAR + col * cellW,
+          MAR + row * cellH,
           cellW, cellH, i);
       }
 
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const wR    = Math.round(parseFloat(pdfW.value) || 80);
-      const hR    = Math.round(parseFloat(pdfH.value) || 50);
-      pdf.save(`barcode_${stamp}_${wR}x${hR}${unit}.pdf`);
+      const wR = +(parseFloat(pdfW.value) || 101.6).toFixed(1);
+      const hR = +(parseFloat(pdfH.value) || 50.8).toFixed(1);
+      pdf.save(`label_${stamp}_${wR}x${hR}${unit}.pdf`);
       showToast('PDF saved ✓', false);
-    } catch (e) { console.error(e); showToast('Error: ' + e.message, false); }
+
+    } catch (e) {
+      console.error(e);
+      showToast('Error: ' + e.message, false);
+    }
   }
 
-  /* ─────────────────────────────────────────────────────
-     drawCell  — robust centering
-     1. Render image to canvas to get REAL pixel dimensions
-     2. Compute exact mm sizes preserving aspect ratio
-     3. Measure total content height
-     4. Start at (cellH - totalH) / 2  →  perfect centre
-  ───────────────────────────────────────────────────── */
+  /* ──────────────────────────────────────────────────────
+     drawCell
+     Renders one label cell with PERFECT vertical centering.
+
+     Strategy:
+       1. Convert SVG → high-res canvas (real pixel ratio)
+       2. Compute ALL element heights in mm
+       3. total vertical offset = (cellH - sumH) / 2
+       4. Draw top-to-bottom starting from that offset
+  ────────────────────────────────────────────────────── */
   async function drawCell(pdf, x0, y0, cw, ch, idx) {
-    const PAD  = 1.5;
+    const PAD  = 2;           /* mm inner padding */
     const USEW = cw - PAD * 2;
     const midX = x0 + cw / 2;
 
-    /* flags */
     const isBC    = S.type === 'barcode';
     const isQR    = S.type === 'qr';
     const isBatch = S.type === 'batch';
@@ -362,59 +388,60 @@
     else if (isQR)         code = qrInput.value.trim().slice(0, 44);
     else if (S.batchItems[idx]) code = S.batchItems[idx].code;
 
-    /* ── render image to canvas, measure real ratio ── */
+    /* ── Render image, measure real pixel ratio ── */
     let imgPNG = null, IMG_W = 0, IMG_H = 0;
 
     if (isBC && S.bcSvgEl) {
-      const canvas = await svgToCanvas(S.bcSvgEl, 1600, 600);
-      imgPNG = canvas.toDataURL('image/png');
-      const ratio = canvas.width / canvas.height;   // real pixel ratio
-      IMG_W = USEW;
-      IMG_H = IMG_W / ratio;
-      /* clamp height so it doesn't overflow cell */
-      const maxH = ch - PAD * 2 - (hasName ? 5 : 0) - (code ? 4.5 : 0) - (metaArr.length ? 3.5 : 0);
-      if (IMG_H > maxH) { IMG_H = maxH; IMG_W = IMG_H * ratio; }
-
-    } else if (isQR && S.qrCanvas) {
-      imgPNG = S.qrCanvas.toDataURL('image/png');
-      const maxSide = Math.min(USEW,
-        ch - PAD*2 - (code ? 5 : 0));
-      IMG_W = maxSide; IMG_H = maxSide;
-
-    } else if (isBatch && S.batchItems[idx]?.ok) {
-      const canvas = await svgToCanvas(S.batchItems[idx].svgEl, 1600, 600);
+      /* Render at 1600px tall for crisp Zebra output */
+      const canvas = await svgToCanvas(S.bcSvgEl, 4800, 1600);
       imgPNG = canvas.toDataURL('image/png');
       const ratio = canvas.width / canvas.height;
       IMG_W = USEW;
-      IMG_H = IMG_W / ratio;
-      const maxH = ch - PAD * 2 - (code ? 4.5 : 0);
-      if (IMG_H > maxH) { IMG_H = maxH; IMG_W = IMG_H * ratio; }
+      IMG_H = parseFloat((IMG_W / ratio).toFixed(4));
+
+      /* If barcode is taller than ~65% of cell, shrink */
+      const cap = ch * 0.65 - (hasName ? 5 : 0) - (code ? 4 : 0) - (metaArr.length ? 3 : 0);
+      if (IMG_H > cap) { IMG_H = cap; IMG_W = parseFloat((IMG_H * ratio).toFixed(4)); }
+
+    } else if (isQR && S.qrCanvas) {
+      imgPNG = S.qrCanvas.toDataURL('image/png');
+      const cap = ch - PAD * 2 - (code ? 5 : 0);
+      const sz  = Math.min(USEW, cap);
+      IMG_W = sz; IMG_H = sz;
+
+    } else if (isBatch && S.batchItems[idx]?.ok) {
+      const canvas = await svgToCanvas(S.batchItems[idx].svgEl, 4800, 1600);
+      imgPNG = canvas.toDataURL('image/png');
+      const ratio = canvas.width / canvas.height;
+      IMG_W = USEW;
+      IMG_H = parseFloat((IMG_W / ratio).toFixed(4));
+      const cap = ch * 0.65 - (code ? 4 : 0);
+      if (IMG_H > cap) { IMG_H = cap; IMG_W = parseFloat((IMG_H * ratio).toFixed(4)); }
     }
 
-    /* ── block heights ── */
-    const LOGO_W = hasLogo ? Math.min(14, USEW * 0.35) : 0;
+    /* ── Block heights (mm) ───────────────────── */
+    const LOGO_W = hasLogo ? Math.min(16, USEW * 0.35) : 0;
     const LOGO_H = hasLogo ? LOGO_W * 0.5 : 0;
-    const LOGO_G = hasLogo ? 1.2 : 0;
-    const NAME_H = hasName ? 4.2 : 0;
-    const NAME_G = hasName ? 1   : 0;
-    const IMG_G  = imgPNG  ? 1   : 0;
+    const LOGO_G = hasLogo ? 1.5 : 0;
+    const NAME_H = hasName ? 4 : 0;
+    const NAME_G = hasName ? 1.5 : 0;
+    const IMG_G  = imgPNG  ? 1.5 : 0;
     const CODE_H = code    ? 3.5 : 0;
-    const CODE_G = code    ? 0.8 : 0;
+    const CODE_G = code    ? 1   : 0;
     const META_H = metaArr.length ? 3 : 0;
 
-    const totalH =
+    const sumH =
       LOGO_H + LOGO_G +
       NAME_H + NAME_G +
       IMG_H  + IMG_G  +
       CODE_H + CODE_G +
       META_H;
 
-    /* ── start Y: vertically centred ── */
-    let y = y0 + (ch - totalH) / 2;
-    if (y < y0 + PAD) y = y0 + PAD;
+    /* ── Vertically centred start Y ──────────── */
+    let y = y0 + (ch - sumH) / 2;
+    if (y < y0 + PAD) y = y0 + PAD;   /* clamp top */
 
-    /* ── draw ── */
-    // Logo
+    /* ── Draw: Logo ──────────────────────────── */
     if (hasLogo) {
       try {
         const ext = S.logoUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
@@ -423,42 +450,48 @@
       y += LOGO_H + LOGO_G;
     }
 
-    // Product name
+    /* ── Draw: Product name ───────────────────── */
     if (hasName) {
-      const fs = Math.max(6, Math.min(10, cw * 0.22));
-      pdf.setFont('helvetica', 'bold').setFontSize(fs).setTextColor(0, 0, 0);
-      pdf.text(labelName.value.trim(), midX, y + NAME_H * 0.8,
+      const fs = clamp(cw * 0.22, 7, 11);
+      pdf.setFont('helvetica', 'bold')
+         .setFontSize(fs)
+         .setTextColor(0, 0, 0);
+      pdf.text(labelName.value.trim(), midX, y + NAME_H * 0.78,
         { align: 'center', maxWidth: USEW });
       y += NAME_H + NAME_G;
     }
 
-    // Barcode / QR image — horizontally centred
+    /* ── Draw: Barcode / QR — centred ────────── */
     if (imgPNG) {
       pdf.addImage(imgPNG, 'PNG', midX - IMG_W / 2, y, IMG_W, IMG_H);
       y += IMG_H + IMG_G;
     }
 
-    // Code number
+    /* ── Draw: Code number ────────────────────── */
     if (code) {
-      const fs = Math.max(5, Math.min(8, cw * 0.15));
-      pdf.setFont('courier', 'normal').setFontSize(fs).setTextColor(30, 30, 30);
-      pdf.text(code, midX, y + CODE_H * 0.8,
+      const fs = clamp(cw * 0.13, 5, 9);
+      pdf.setFont('courier', 'normal')
+         .setFontSize(fs)
+         .setTextColor(20, 20, 20);
+      pdf.text(code, midX, y + CODE_H * 0.78,
         { align: 'center', maxWidth: USEW });
       y += CODE_H + CODE_G;
     }
 
-    // Meta
+    /* ── Draw: Meta ───────────────────────────── */
     if (metaArr.length) {
-      const fs = Math.max(4, Math.min(6, cw * 0.11));
-      pdf.setFont('courier', 'normal').setFontSize(fs).setTextColor(80, 80, 80);
-      pdf.text(metaArr.join('  ·  '), midX, y + META_H * 0.8,
+      const fs = clamp(cw * 0.10, 4, 7);
+      pdf.setFont('courier', 'normal')
+         .setFontSize(fs)
+         .setTextColor(70, 70, 70);
+      pdf.text(metaArr.join('  ·  '), midX, y + META_H * 0.78,
         { align: 'center', maxWidth: USEW });
     }
   }
 
-  /* ══════════════════════════════════════════════════════
-     HISTORY — persisted in localStorage
-  ══════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════
+     HISTORY — localStorage persisted
+  ═══════════════════════════════════════════════ */
   function loadHist() {
     try { S.history = JSON.parse(localStorage.getItem('bcg-history') || '[]'); }
     catch { S.history = []; }
@@ -514,23 +547,38 @@
 
   /* ══ HELPERS ════════════════════════════════ */
 
-  /* Render SVG to canvas at given target dimensions, preserving ratio */
+  /**
+   * Render an SVG element to a canvas at high resolution.
+   * Reads actual viewBox / width / height so the barcode
+   * pixel ratio is always correct.
+   */
   function svgToCanvas(svgEl, targetW, targetH) {
     return new Promise(resolve => {
-      /* Serialise and get natural SVG dimensions */
-      const xml  = new XMLSerializer().serializeToString(svgEl);
-      /* Inject explicit width/height so browsers render it properly */
+      const xml = new XMLSerializer().serializeToString(svgEl);
+
+      /* Get natural SVG dimensions */
       const vb   = svgEl.viewBox && svgEl.viewBox.baseVal;
-      const svgW = vb && vb.width  ? vb.width  : (svgEl.width?.baseVal?.value  || targetW);
-      const svgH = vb && vb.height ? vb.height : (svgEl.height?.baseVal?.value || targetH);
-      const ratio = svgW / svgH;
-      /* Canvas size: respect ratio, use targetH as reference */
-      const cH = targetH;
-      const cW = Math.round(cH * ratio);
+      const natW = (vb && vb.width  > 0 ? vb.width  : null)
+                || svgEl.width?.baseVal?.value || 0;
+      const natH = (vb && vb.height > 0 ? vb.height : null)
+                || svgEl.height?.baseVal?.value || 0;
+
+      /* Canvas size: preserve real ratio, use targetH as ceiling */
+      let cH = targetH;
+      let cW = natW && natH ? Math.round(cH * natW / natH) : targetW;
+      if (cW < 10) cW = targetW;
+
       const blob = new Blob([xml], { type: 'image/svg+xml' });
       const url  = URL.createObjectURL(blob);
       const img  = new Image();
+
       img.onload = () => {
+        /* Use natural image size if browser reported it correctly */
+        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+          const imgRatio = img.naturalWidth / img.naturalHeight;
+          cH = targetH;
+          cW = Math.round(cH * imgRatio);
+        }
         const c   = document.createElement('canvas');
         c.width   = cW; c.height = cH;
         const ctx = c.getContext('2d');
@@ -549,9 +597,7 @@
     });
   }
 
-  function svgToPNG(svgEl, targetH, cb) {
-    svgToCanvas(svgEl, targetH * 3, targetH).then(c => cb(c.toDataURL('image/png')));
-  }
+  function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
 
   function dlLink(url, name) {
     const a = document.createElement('a'); a.href = url; a.download = name; a.click();
@@ -566,8 +612,8 @@
     el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
   }
   function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   /* ══ BINDINGS + INIT ════════════════════════ */
